@@ -1,19 +1,66 @@
 #!/bin/bash
 
-sudo apt-get update
+TOP=$(git rev-parse --show-toplevel)
 
-sudo apt-get install -y --no-install-recommends \
-    python3 \
-    python3-pip \
-    python3-venv \
-    libgl1 \
-    libglib2.0-0 \
-    libjpeg-dev \
-    zstd \
-    ffmpeg \
-    procps \
-    coreutils findutils wget sed unzip curl jq coreutils findutils sed unzip curl imagemagick
+OS=$("$TOP/.tools/detect-os.sh")
 
+COMMON_PACKAGES=(
+    python3
+    python3-pip
+    zstd
+    ffmpeg
+    coreutils
+    findutils
+    wget
+    sed
+    unzip
+    curl
+    jq
+)
+
+case "$OS" in
+    fedora)
+        PKG_MANAGER="dnf"
+        PACKAGES=(
+            "${COMMON_PACKAGES[@]}"
+            procps-ng
+            python3-virtualenv
+            mesa-libGL
+            glib2
+            libjpeg-turbo-devel
+            ImageMagick
+        )
+        sudo dnf makecache
+        ;;
+    *)
+        PKG_MANAGER="apt-get"
+        PACKAGES=(
+            "${COMMON_PACKAGES[@]}"
+            procps
+            python3-venv
+            libgl1
+            libglib2.0-0
+            libjpeg-dev
+            imagemagick
+        )
+        sudo apt-get update
+        ;;
+esac
+
+for pkg in "${PACKAGES[@]}"; do
+    case "$OS" in
+        fedora)
+            if ! rpm -q "$pkg" >/dev/null 2>&1; then
+                sudo dnf install -y "$pkg"
+            fi
+            ;;
+        *)
+            if ! dpkg -l | grep -q "^ii\s\+$pkg\s"; then
+                sudo apt-get install -y --no-install-recommends "$pkg"
+            fi
+            ;;
+    esac
+done
 
 pip install --break-system-packages --upgrade pip
 pip install --break-system-packages llm

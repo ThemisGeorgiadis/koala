@@ -11,34 +11,40 @@ COMMON_PACKAGES=(
     pkg-config
 )
 
-if [[ "$OS" == "fedora" ]]; then
-    PKG_MANAGER="dnf"
-    PACKAGES=(
-        "${COMMON_PACKAGES[@]}"
-        fuse3-devel
-        fuse3
-    )
-else
-    PKG_MANAGER="apt-get"
-    PACKAGES=(
-        "${COMMON_PACKAGES[@]}"
-        libfuse3-dev
-        fuse3
-    )
-fi
+case "$OS" in
+    fedora)
+        PKG_MANAGER="dnf"
+        PACKAGES=(
+            "${COMMON_PACKAGES[@]}"
+            fuse3-devel
+            fuse3
+        )
+        ;;
+    *)
+        PKG_MANAGER="apt-get"
+        PACKAGES=(
+            "${COMMON_PACKAGES[@]}"
+            libfuse3-dev
+            fuse3
+        )
+        ;;
+esac
 
 sudo "$PKG_MANAGER" update
 
 for pkg in "${PACKAGES[@]}"; do
-    if [[ "$OS" == "fedora" ]]; then
-        if ! rpm -q "$pkg" >/dev/null 2>&1; then
-            sudo dnf install -y "$pkg"
-        fi
-    else
-        if ! dpkg -l | grep -q "^ii\s\+$pkg\s"; then
-            sudo apt-get install -y --no-install-recommends "$pkg"
-        fi
-    fi
+    case "$OS" in
+        fedora)
+            if ! rpm -q "$pkg" >/dev/null 2>&1; then
+                sudo dnf install -y "$pkg"
+            fi
+            ;;
+        *)
+            if ! dpkg -l | grep -q "^ii\s\+$pkg\s"; then
+                sudo apt-get install -y --no-install-recommends "$pkg"
+            fi
+            ;;
+    esac
 done
 
 cd /tmp || exit 1

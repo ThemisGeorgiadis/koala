@@ -22,70 +22,76 @@ COMMON_PACKAGES=(
     npm
 )
 
-if [[ "$OS" == "fedora" ]]; then
-    PKG_MANAGER="dnf"
-    PACKAGES=(
-        "${COMMON_PACKAGES[@]}"
-        ncurses-devel
-        xz-devel
-        bzip2-devel
-        libarchive
-        ImageMagick
-        gcc-c++
-        openssl-devel
-        qt-creator
-        qt5-qtbase-devel
-        libtirpc-devel
-        libSM-devel
-        libICE-devel
-        libXt-devel
-        libX11-devel
-        libXdmcp-devel
-        libselinux-devel
-        readline-devel
-        java-latest-openjdk-devel
-    )
-else
-    PKG_MANAGER="apt-get"
-    PACKAGES=(
-        "${COMMON_PACKAGES[@]}"
-        libncurses5-dev
-        libncursesw5-dev
-        liblzma-dev
-        libbz2-dev
-        libarchive-tools
-        imagemagick
-        build-essential
-        libssl-dev
-        qtcreator
-        qtbase5-dev
-        qt5-qmake
-        libtirpc-dev
-        libncurses-dev
-        libsm-dev
-        libice-dev
-        libxt-dev
-        libx11-dev
-        libxdmcp-dev
-        libselinux-dev
-        libtool-bin
-        libreadline-dev
-        default-jdk
-    )
-fi
-
-sudo "$PKG_MANAGER" update
+case "$OS" in
+    fedora)
+        PKG_MANAGER="dnf"
+        PACKAGES=(
+            "${COMMON_PACKAGES[@]}"
+            ncurses-devel
+            xz-devel
+            bzip2-devel
+            libarchive
+            ImageMagick
+            gcc-c++
+            openssl-devel
+            qt-creator
+            qt5-qtbase-devel
+            libtirpc-devel
+            libSM-devel
+            libICE-devel
+            libXt-devel
+            libX11-devel
+            libXdmcp-devel
+            libselinux-devel
+            readline-devel
+            java-latest-openjdk-devel
+        )
+        sudo dnf makecache
+        ;;
+    *)
+        PKG_MANAGER="apt-get"
+        PACKAGES=(
+            "${COMMON_PACKAGES[@]}"
+            libncurses5-dev
+            libncursesw5-dev
+            liblzma-dev
+            libbz2-dev
+            libarchive-tools
+            imagemagick
+            build-essential
+            libssl-dev
+            qtcreator
+            qtbase5-dev
+            qt5-qmake
+            libtirpc-dev
+            libncurses-dev
+            libsm-dev
+            libice-dev
+            libxt-dev
+            libx11-dev
+            libxdmcp-dev
+            libselinux-dev
+            libtool-bin
+            libreadline-dev
+            default-jdk
+        )
+        sudo apt-get update
+        ;;
+esac
 
 for pkg in "${PACKAGES[@]}"; do
-    if [[ "$OS" == "fedora" ]]; then
-        if ! rpm -q "$pkg" >/dev/null 2>&1; then
-            sudo dnf install -y "$pkg"
-        fi
-    else
-        if ! dpkg -l | grep -q "^ii\s\+$pkg\s"; then
-            sudo apt-get install -y --no-install-recommends "$pkg"
-        fi
-    fi
+    case "$OS" in
+        fedora)
+            if ! rpm -q "$pkg" >/dev/null 2>&1; then
+                sudo dnf install -y "$pkg"
+            fi
+            ;;
+        *)
+            if ! dpkg -l | grep -q "^ii\s\+$pkg\s"; then
+                sudo apt-get install -y --no-install-recommends "$pkg"
+            fi
+            ;;
+    esac
 done
 
 if [[ "$OS" != "fedora" ]]; then
@@ -117,20 +123,26 @@ fi
 
 # Install Node.js (18.x) and npm via NodeSource
 if ! command -v node >/dev/null 2>&1; then
-    if [[ "$OS" == "fedora" ]]; then
-        sudo dnf install -y nodejs
-    else
-        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-        sudo apt-get install -y --no-install-recommends nodejs
-    fi
+    case "$OS" in
+        fedora)
+            sudo dnf install -y nodejs
+            ;;
+        *)
+            curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+            sudo apt-get install -y --no-install-recommends nodejs
+            ;;
+    esac
 fi
 
-if [[ "$OS" == "fedora" ]]; then
-    if ! rpm -q java-latest-openjdk-devel >/dev/null 2>&1; then
-        sudo dnf install -y java-latest-openjdk-devel
-    fi
-else
-    if ! dpkg -l | grep -q "^ii\s\+default-jdk\s"; then
-        sudo apt-get install -y --no-install-recommends default-jdk
-    fi
-fi
+case "$OS" in
+    fedora)
+        if ! rpm -q java-latest-openjdk-devel >/dev/null 2>&1; then
+            sudo dnf install -y java-latest-openjdk-devel
+        fi
+        ;;
+    *)
+        if ! dpkg -l | grep -q "^ii\\s\+default-jdk\s"; then
+            sudo apt-get install -y --no-install-recommends default-jdk
+        fi
+        ;;
+esac

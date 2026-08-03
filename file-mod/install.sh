@@ -20,32 +20,38 @@ COMMON_PACKAGES=(
     zstd
 )
 
-if [[ "$OS" == "fedora" ]]; then
-    PKG_MANAGER="dnf"
-    PACKAGES=(
-        "${COMMON_PACKAGES[@]}"
-        ImageMagick
-        xz
-    )
-else
-    PKG_MANAGER="apt-get"
-    PACKAGES=(
-        "${COMMON_PACKAGES[@]}"
-        imagemagick
-        xz-utils
-    )
-fi
-
-sudo "$PKG_MANAGER" update
+case "$OS" in
+    fedora)
+        PKG_MANAGER="dnf"
+        PACKAGES=(
+            "${COMMON_PACKAGES[@]}"
+            ImageMagick
+            xz
+        )
+        sudo dnf makecache
+        ;;
+    *)
+        PKG_MANAGER="apt-get"
+        PACKAGES=(
+            "${COMMON_PACKAGES[@]}"
+            imagemagick
+            xz-utils
+        )
+        sudo apt-get update
+        ;;
+esac
 
 for pkg in "${PACKAGES[@]}"; do
-    if [[ "$OS" == "fedora" ]]; then
-        if ! rpm -q "$pkg" >/dev/null 2>&1; then
-            sudo dnf install -y "$pkg"
-        fi
-    else
-        if ! dpkg -l | grep -q "^ii\s\+$pkg\s"; then
-            sudo apt-get install -y --no-install-recommends "$pkg"
-        fi
-    fi
+    case "$OS" in
+        fedora)
+            if ! rpm -q "$pkg" >/dev/null 2>&1; then
+                sudo dnf install -y "$pkg"
+            fi
+            ;;
+        *)
+            if ! dpkg -l | grep -q "^ii\\s\\+$pkg\\s"; then
+                sudo apt-get install -y --no-install-recommends "$pkg"
+            fi
+            ;;
+    esac
 done

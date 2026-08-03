@@ -24,43 +24,49 @@ COMMON_PACKAGES=(
     sed
 )
 
-if [[ "$OS" == "fedora" ]]; then
-    PKG_MANAGER="dnf"
-    PACKAGES=(
-        "${COMMON_PACKAGES[@]}"
-        bc
-        bcftools
-        gcc
-        gcc-c++
-        jansson-devel
-        libpcap-devel
-        q-text-as-data
-    )
-else
-    PKG_MANAGER="apt-get"
-    PACKAGES=(
-        "${COMMON_PACKAGES[@]}"
-        bc
-        bcftools
-        build-essential
-        libjansson-dev
-        libpcap-dev
-        q-text-as-data
-    )
-fi
+case "$OS" in
+    fedora)
+        PKG_MANAGER="dnf"
+        PACKAGES=(
+            "${COMMON_PACKAGES[@]}"
+            bc
+            bcftools
+            gcc
+            gcc-c++
+            jansson-devel
+            libpcap-devel
+            q-text-as-data
+        )
+        ;;
+    *)
+        PKG_MANAGER="apt-get"
+        PACKAGES=(
+            "${COMMON_PACKAGES[@]}"
+            bc
+            bcftools
+            build-essential
+            libjansson-dev
+            libpcap-dev
+            q-text-as-data
+        )
+        ;;
+esac
 
 sudo "$PKG_MANAGER" update
 
 for pkg in "${PACKAGES[@]}"; do
-    if [[ "$OS" == "fedora" ]]; then
-        if ! rpm -q "$pkg" >/dev/null 2>&1; then
-            sudo dnf install -y "$pkg"
-        fi
-    else
-        if ! dpkg -l | grep -q "^ii\s\+$pkg\s"; then
-            sudo apt-get install -y --no-install-recommends "$pkg"
-        fi
-    fi
+    case "$OS" in
+        fedora)
+            if ! rpm -q "$pkg" >/dev/null 2>&1; then
+                sudo dnf install -y "$pkg"
+            fi
+            ;;
+        *)
+            if ! dpkg -l | grep -q "^ii\s\+$pkg\s"; then
+                sudo apt-get install -y --no-install-recommends "$pkg"
+            fi
+            ;;
+    esac
 done
 
 # Set GO_VERSION before using it
