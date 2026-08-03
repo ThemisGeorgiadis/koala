@@ -1,8 +1,10 @@
 #!/bin/bash
 
-source /etc/os-release
+TOP=$(git rev-parse --show-toplevel)
 
-if [[ "$ID" == "fedora" ]]; then
-    sudo dnf update
+OS=$("$TOP/.tools/detect-os.sh")
+
+if [[ "$OS" == "fedora" ]]; then
+    sudo dnf makecache
 	sudo dnf install perl-Digest-SHA -y 
 fi

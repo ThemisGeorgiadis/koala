@@ -25,3 +25,5 @@ pip install --break-system-packages \
     scipy==1.13.1 \
     threadpoolctl==3.5.0 \
     imbalanced-learn==0.13.0
+
+    #WE NEED AN OLDER VERION OF PYTHON

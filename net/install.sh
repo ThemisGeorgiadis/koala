@@ -1,47 +1,104 @@
 #!/bin/bash
 
-sudo mkdir -p /etc/apt/keyrings
-curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --yes --dearmor -o /etc/apt/keyrings/charm.gpg
-echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
+TOP=$(git rev-parse --show-toplevel)
 
-sudo apt-get update -y
+OS=$("$TOP/.tools/detect-os.sh")
 
-sudo apt-get install -y \
-    build-essential \
-    git \
-    curl \
-    wget \
-    gpg \
-    automake \
-    flex \
-    tar \
-    libpq-dev \
-    libpcre3-dev \
-    libssl-dev \
-    libpcap-dev \
-    libltdl-dev \
-    bison \
-    python3 \
-    python3-pip \
-    python3-venv \
-    net-tools \
-    xsltproc \
-    bind9-dnsutils \
-    netcat-traditional
+COMMON_PACKAGES=(
+    git
+    curl
+    wget
+    gpg
+    tar
+    bison
+    python3
+    python3-pip
+)
 
-sudo apt-get install -y \
-    nmap \
-    lolcat \
-    masscan \
-    bind9-host \
-    geoip-bin \
-    hwinfo \
-    autoconf \
-    iproute2 \
-    iptables \
-    ipset \
-    masscan \
-    postgresql \
-    postgresql-contrib \
-    check \
-    iputils-ping
+if [[ "$OS" == "fedora" ]]; then
+    PKG_MANAGER="dnf"
+    PACKAGES=(
+        "${COMMON_PACKAGES[@]}"
+        gcc
+        gcc-c++
+        make
+        automake
+        flex
+        postgresql-devel
+        pcre-devel
+        openssl-devel
+        libpcap-devel
+        libtool-ltdl-devel
+        python3-virtualenv
+        net-tools
+        libxslt
+        bind-utils
+        nc
+        nmap
+        lolcat
+        masscan
+        bind
+        geoip
+        hwinfo
+        autoconf
+        iproute
+        iptables
+        ipset
+        postgresql-server
+        postgresql-contrib
+        check
+        iputils
+    )
+else
+    PKG_MANAGER="apt-get"
+    PACKAGES=(
+        "${COMMON_PACKAGES[@]}"
+        build-essential
+        automake
+        flex
+        libpq-dev
+        libpcre3-dev
+        libssl-dev
+        libpcap-dev
+        libltdl-dev
+        python3-venv
+        net-tools
+        xsltproc
+        bind9-dnsutils
+        netcat-traditional
+        nmap
+        lolcat
+        masscan
+        bind9-host
+        geoip-bin
+        hwinfo
+        autoconf
+        iproute2
+        iptables
+        ipset
+        postgresql
+        postgresql-contrib
+        check
+        iputils-ping
+    )
+fi
+
+if [[ "$OS" != "fedora" ]]; then
+    sudo mkdir -p /etc/apt/keyrings
+    curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --yes --dearmor -o /etc/apt/keyrings/charm.gpg
+    echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
+fi
+
+sudo "$PKG_MANAGER" update
+
+for pkg in "${PACKAGES[@]}"; do
+    if [[ "$OS" == "fedora" ]]; then
+        if ! rpm -q "$pkg" >/dev/null 2>&1; then
+            sudo dnf install -y "$pkg"
+        fi
+    else
+        if ! dpkg -l | grep -q "^ii\s\+$pkg\s"; then
+            sudo apt-get install -y --no-install-recommends "$pkg"
+        fi
+    fi
+done

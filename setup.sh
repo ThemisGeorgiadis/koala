@@ -1,10 +1,12 @@
 #!/bin/bash
 set -e
 
-source /etc/os-release
+TOP=$(git rev-parse --show-toplevel)
 
-if [[ "$ID" == "fedora" ]]; then
-    INSTALLER="dnf"
+OS=$("$TOP/.tools/detect-os.sh")
+
+if [[ "$OS" == "fedora" ]]; then
+    PKG_MANAGER="dnf"
     PACKAGES=(
         git procps-ng autoconf automake libtool
         gcc gcc-c++ make
@@ -12,7 +14,7 @@ if [[ "$ID" == "fedora" ]]; then
         python3 python3-pip
     )
 else
-    INSTALLER="apt-get"
+    PKG_MANAGER="apt-get"
     PACKAGES=(
         git procps autoconf automake libtool
         build-essential
@@ -23,9 +25,8 @@ fi
 
 cd "$(realpath "$(dirname "$0")")" || exit 1
 
-TOP=$(git rev-parse --show-toplevel)
-sudo "$INSTALLER" update
-sudo "$INSTALLER" install -y "${PACKAGES[@]}"
+sudo "$PKG_MANAGER" update
+sudo "$PKG_MANAGER" install -y "${PACKAGES[@]}"
 VENV_DIR="$TOP/venv"
 rm -rf "$VENV_DIR"
 python3 -m venv "$VENV_DIR"

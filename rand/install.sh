@@ -1,4 +1,35 @@
 #!/bin/bash
 
-sudo apt-get update
-sudo apt-get install -y wget coreutils unzip
+TOP=$(git rev-parse --show-toplevel)
+
+OS=$("$TOP/.tools/detect-os.sh")
+
+if [[ "$OS" == "fedora" ]]; then
+    PKG_MANAGER="dnf"
+    PACKAGES=(
+        wget
+        coreutils
+        unzip
+    )
+else
+    PKG_MANAGER="apt-get"
+    PACKAGES=(
+        wget
+        coreutils
+        unzip
+    )
+fi
+
+sudo "$PKG_MANAGER" update
+
+for pkg in "${PACKAGES[@]}"; do
+    if [[ "$OS" == "fedora" ]]; then
+        if ! rpm -q "$pkg" >/dev/null 2>&1; then
+            sudo dnf install -y "$pkg"
+        fi
+    else
+        if ! dpkg -l | grep -q "$pkg"; then
+            sudo apt-get install -y --no-install-recommends "$pkg"
+        fi
+    fi
+done

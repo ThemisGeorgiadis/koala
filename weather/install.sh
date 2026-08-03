@@ -3,20 +3,20 @@
 source /etc/os-release
 
 if [[ "$ID" == "fedora" ]]; then
-    INSTALLER="dnf"
+    PKG_MANAGER="dnf"
     PACKAGES=(
         curl wget unzip coreutils gzip gawk sed findutils
             git python3 python3-pip # python3-venv is included with python3 on Fedora
     )
 else
-    INSTALLER="apt-get"
+    PKG_MANAGER="apt-get"
     PACKAGES=(
         curl wget unzip coreutils gzip gawk sed findutils
             git python3 python3-pip python3-venv
     )
 fi
 
-sudo "$INSTALLER" update 
+sudo "$PKG_MANAGER" update 
 
 for pkg in "${PACKAGES[@]}"; do
     if [[ "$ID" == "fedora" ]]; then

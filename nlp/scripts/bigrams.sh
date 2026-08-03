@@ -12,7 +12,7 @@ pure_func() {
     input=$1
     TEMPDIR=$(mktemp -d)
     cat > ${TEMPDIR}/${input}.input.words
-    tail +2 ${TEMPDIR}/${input}.input.words > ${TEMPDIR}/${input}.input.nextwords
+    tail -n +2 ${TEMPDIR}/${input}.input.words > ${TEMPDIR}/${input}.input.nextwords
     paste ${TEMPDIR}/${input}.input.words ${TEMPDIR}/${input}.input.nextwords
     rm -rf ${TEMPDIR}
 }

@@ -1,27 +1,26 @@
 #!/usr/bin/env bash
 
-source /etc/os-release
+TOP=$(git rev-parse --show-toplevel)
 
-if [[ "$ID" == "fedora" ]]; then
-    INSTALLER="dnf"
+OS=$("$TOP/.tools/detect-os.sh")
+
+if [[ "$OS" == "fedora" ]]; then
+    PKG_MANAGER="dnf"
     PACKAGES=(
         p7zip curl wget unzip npm
     )
+    sudo dnf makecache
 else
-    INSTALLER="apt-get"
+    PKG_MANAGER="apt-get"
     PACKAGES=(
         p7zip-full curl wget unzip npm
     )
-fi
-
-if [[ "$ID" == "fedora" ]]; then
-    sudo dnf makecache
-else
     sudo apt-get update
 fi
 
+
 for pkg in "${PACKAGES[@]}"; do
-    if [[ "$ID" == "fedora" ]]; then
+    if [[ "$OS" == "fedora" ]]; then
         if ! rpm -q "$pkg" >/dev/null 2>&1; then
             sudo dnf install -y "$pkg"
         fi
@@ -33,7 +32,7 @@ for pkg in "${PACKAGES[@]}"; do
 done
 
 # Install pandoc if not installed
-if [[ "$ID" == "fedora" ]]; then
+if [[ "$OS" == "fedora" ]]; then
     if ! command -v pandoc >/dev/null 2>&1; then
         sudo dnf install -y pandoc
     fi
@@ -64,7 +63,7 @@ if ! command -v node > /dev/null 2>&1 ; then
     exit 1
 fi
 
-if [[ "$ID" == "fedora" ]]; then
+if [[ "$OS" == "fedora" ]]; then
     if ! rpm -q nodejs >/dev/null 2>&1 ; then
         sudo dnf install -y nodejs
     fi
