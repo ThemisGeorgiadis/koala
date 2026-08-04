@@ -1,16 +1,55 @@
-#! /bin/bash
+#!/bin/bash
 
-sudo apt-get update 
+TOP=$(git rev-parse --show-toplevel)
 
-pkgs="binutils git build-essential coreutils wget unzip make pbzip2 binutils bzip2 zstd gnupg"
+OS=$("$TOP/.tools/detect-os.sh")
 
-for pkg in $pkgs; do
-    if ! dpkg -s "$pkg" &> /dev/null; then
-        sudo apt-get install -y --no-install-recommends "$pkg"
-    fi
+COMMON_PACKAGES=(
+    binutils
+    git
+    build-essential
+    coreutils
+    wget
+    unzip
+    make
+    pbzip2
+    bzip2
+    zstd
+    gnupg
+)
+
+case "$OS" in
+    fedora)
+        PKG_MANAGER="dnf"
+        PACKAGES=(
+            "${COMMON_PACKAGES[@]}"
+        )
+        sudo dnf makecache
+        ;;
+    *)
+        PKG_MANAGER="apt-get"
+        PACKAGES=(
+            "${COMMON_PACKAGES[@]}"
+        )
+        sudo apt-get update
+        ;;
+esac
+
+for pkg in "${PACKAGES[@]}"; do
+    case "$OS" in
+        fedora)
+            if ! rpm -q "$pkg" >/dev/null 2>&1; then
+                sudo dnf install -y "$pkg"
+            fi
+            ;;
+        *)
+            if ! dpkg -l | grep -q "^ii\s\+$pkg\s"; then
+                sudo apt-get install -y --no-install-recommends "$pkg"
+            fi
+            ;;
+    esac
 done
 
-TOP="$(git rev-parse --show-toplevel)"
 eval_dir="${TOP}/ci-cd/riker"
 
 min_benchmark=(

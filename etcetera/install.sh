@@ -19,6 +19,7 @@ case "$OS" in
             fuse3-devel
             fuse3
         )
+        sudo dnf makecache
         ;;
     *)
         PKG_MANAGER="apt-get"
@@ -27,10 +28,9 @@ case "$OS" in
             libfuse3-dev
             fuse3
         )
+        sudo apt-get update
         ;;
 esac
-
-sudo "$PKG_MANAGER" update
 
 for pkg in "${PACKAGES[@]}"; do
     case "$OS" in

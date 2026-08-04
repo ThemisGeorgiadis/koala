@@ -29,6 +29,7 @@ case "$OS" in
             glib2
             libjpeg-turbo-devel
             ImageMagick
+            perl-Digest-SHA
         )
         sudo dnf makecache
         ;;

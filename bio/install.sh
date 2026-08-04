@@ -8,13 +8,96 @@ for arg in "$@"; do
     esac
 done
 
-sudo apt-get update
-pkgs="build-essential libncurses5-dev libncursesw5-dev libbz2-dev liblzma-dev libcurl4-openssl-dev libssl-dev wget zlib1g-dev minimap2 samtools" 
+TOP=$(git rev-parse --show-toplevel)
+OS=$("$TOP/.tools/detect-os.sh")
 
-for pkg in $pkgs; do
-    if ! dpkg -s $pkg; then
-        sudo apt-get install -y --no-install-recommends $pkg
-    fi
+case "$OS" in
+    fedora)
+        PACKAGES=(
+            gcc
+            gcc-c++
+            make
+            git
+            wget
+            curl
+            python3
+            python3-devel
+            python3-pip
+            perl
+            perl-App-cpanminus
+            perl-DBI
+            zlib-ng-compat-devel
+            bzip2-devel
+            xz-devel
+            libcurl-devel
+            openssl-devel
+            ncurses-devel
+            openjdk-17-devel
+            R
+            R-devel
+            gradle
+            cmake
+            gffread
+            gmap
+            parallel
+            unzip
+            minimap2
+            samtools
+        )
+        sudo dnf makecache
+        ;;
+    *)
+        PACKAGES=(
+            build-essential
+            git
+            wget
+            curl
+            python3
+            python3-dev
+            python3.11-dev
+            python3-all-dev
+            python3-pip
+            perl
+            cpanminus
+            libdbi-perl
+            zlib1g-dev
+            libbz2-dev
+            liblzma-dev
+            libcurl4-openssl-dev
+            openjdk-17-jdk
+            default-jre-headless
+            r-base
+            r-base-dev
+            gradle
+            cmake
+            make
+            gcc
+            g++
+            gffread
+            gmap
+            parallel
+            libncurses5-dev
+            libncursesw5-dev
+            minimap2
+            samtools
+        )
+        sudo apt-get update
+        ;;
+esac
+
+for pkg in "${PACKAGES[@]}"; do
+    case "$OS" in
+        fedora)
+            if ! rpm -q "$pkg" >/dev/null 2>&1; then
+                sudo dnf install -y "$pkg"
+            fi
+            ;;
+        *)
+            if ! dpkg -s "$pkg" >/dev/null 2>&1; then
+                sudo apt-get install -y --no-install-recommends "$pkg"
+            fi
+            ;;
+    esac
 done
 
 if [[ "$size" == "min" ]]; then
@@ -22,47 +105,22 @@ if [[ "$size" == "min" ]]; then
 fi
 
 # For teraseq
-TOP=$(git rev-parse --show-toplevel)
 benchmark_dir="${TOP}/bio"
 
 # install.sh: Installs system-wide dependencies for the TERA-Seq pipeline
 
-# 1. Install OS packages
-sudo apt-get install -y --no-install-recommends \
-    build-essential \
-    git \
-    wget \
-    curl \
-    python3 \
-    python3-dev \
-    python3.11-dev \
-    python3-all-dev \
-    python3-pip \
-    perl \
-    cpanminus \
-    libdbi-perl \
-    zlib1g-dev \
-    libbz2-dev \
-    liblzma-dev \
-    libcurl4-openssl-dev \
-    openjdk-17-jdk \
-    default-jre-headless \
-    r-base \
-    r-base-dev \
-    gradle \
-    cmake \
-    make \
-    gcc \
-    g++ \
-    gffread \
-    gmap \
-    parallel \
- && rm -rf /var/lib/apt/lists/*
-
 sudo wget -qO /usr/local/bin/liftOver http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/liftOver
 sudo chmod +x /usr/local/bin/liftOver
 
-export CFLAGS="-I/usr/include/python3.11 -I/usr/include/python3.11/cpython"
+case "$OS" in
+    fedora)
+        export CFLAGS="-I/usr/include/python3 -I/usr/include/python3/cpython"
+        ;;
+    *)
+        export CFLAGS="-I/usr/include/python3.11 -I/usr/include/python3.11/cpython"
+        ;;
+esac
+
 export CPPFLAGS="$CFLAGS"
 
 # 2. Install Python packages
@@ -87,6 +145,7 @@ command -v samtools >/dev/null 2>&1 || { \
     && ./configure --prefix=/usr/local \
     && make -j$(nproc) && make install \
     && cd / && rm -rf /tmp/samtools; }
+
 command -v minimap2 >/dev/null 2>&1 || { \
     git clone --depth 1 https://github.com/lh3/minimap2.git /tmp/minimap2 \
     && cd /tmp/minimap2 \
@@ -99,10 +158,9 @@ command -v minimap2 >/dev/null 2>&1 || { \
 command -v seqkit >/dev/null 2>&1 || {
   curl -L https://github.com/shenwei356/seqkit/releases/download/v2.1.0/seqkit_linux_amd64.tar.gz \
     -o /tmp/seqkit.tar.gz \
-  && \
-  # extract just the `seqkit` executable into /tmp
+  &&
   tar -xzf /tmp/seqkit.tar.gz -C /tmp seqkit --no-same-owner \
-  && \
+  &&
   mv /tmp/seqkit /usr/local/bin/seqkit \
   && chmod +x /usr/local/bin/seqkit \
   && rm /tmp/seqkit.tar.gz
@@ -174,16 +232,17 @@ rm -rf "$tmpdir"
 
 # 7. Install R packages
 Rscript -e 'install.packages(c(
-    "DBI",        
-    "RSQLite",    
-    "dplyr",      
-    "stringr",    
-    "optparse",   
-    "longitudinal", 
+    "DBI",
+    "RSQLite",
+    "dplyr",
+    "stringr",
+    "optparse",
+    "longitudinal",
     "fdrtool",
     "ggplot2",
     "reshape2"
   ), repos="https://cloud.r-project.org")'
+
 Rscript -e 'install.packages("https://cran.r-project.org/src/contrib/Archive/GeneCycle/GeneCycle_1.1.5.tar.gz", repos=NULL, type="source")'
 
 # 8. Install sam_to_sqlite and annotate-sqlite-with-fastq
@@ -192,5 +251,15 @@ cd "${benchmark_dir}"
 chmod +x utils/*
 
 # Cleanup
-apt-get clean && rm -rf /var/lib/apt/lists/ /tmp/*
+case "$OS" in
+    fedora)
+        dnf clean all
+        rm -rf /var/cache/dnf/
+        ;;
+    *)
+        apt-get clean
+        rm -rf /var/lib/apt/lists/
+        ;;
+esac
 
+rm -rf /tmp/*
