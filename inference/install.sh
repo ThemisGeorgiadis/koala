@@ -90,4 +90,4 @@ sleep 5
 ollama pull moondream:latest
 
 ollama_pid=$(pgrep ollama)
-kill $ollama_pid
+sudo kill $ollama_pid

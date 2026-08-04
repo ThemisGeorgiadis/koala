@@ -35,8 +35,8 @@ case "$OS" in
             gcc-c++
             jansson-devel
             libpcap-devel
-            q-text-as-data
         )
+        sudo dnf makecache
         ;;
     *)
         PKG_MANAGER="apt-get"
@@ -49,10 +49,10 @@ case "$OS" in
             libpcap-dev
             q-text-as-data
         )
+        sudo apt-get update
         ;;
 esac
 
-sudo "$PKG_MANAGER" update
 
 for pkg in "${PACKAGES[@]}"; do
     case "$OS" in
