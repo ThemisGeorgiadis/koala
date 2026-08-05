@@ -1,36 +1,36 @@
-#!/bin/bash
+#!/bin/sh
 
 TOP=$(git rev-parse --show-toplevel)
 
 OS=$("$TOP/.tools/detect-os.sh")
 
-COMMON_PACKAGES=(
+COMMON_PACKAGES="
     coreutils
     curl
     gzip
     gawk
     sed
     git
-)
+"
 
 case "$OS" in
     fedora)
         PKG_MANAGER="dnf"
-        PACKAGES=(
-            "${COMMON_PACKAGES[@]}"
-        )
+        PACKAGES="
+            $COMMON_PACKAGES
+        "
         sudo dnf makecache
         ;;
     *)
         PKG_MANAGER="apt-get"
-        PACKAGES=(
-            "${COMMON_PACKAGES[@]}"
-        )
+        PACKAGES="
+            $COMMON_PACKAGES
+        "
         sudo apt-get update
         ;;
 esac
 
-for pkg in "${PACKAGES[@]}"; do
+for pkg in $PACKAGES; do
     case "$OS" in
         fedora)
             if ! rpm -q "$pkg" >/dev/null 2>&1; then

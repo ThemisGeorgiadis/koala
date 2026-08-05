@@ -1,10 +1,10 @@
-#!/bin/bash
+#!/bin/sh
 
 TOP=$(git rev-parse --show-toplevel)
 
 OS=$("$TOP/.tools/detect-os.sh")
 
-COMMON_PACKAGES=(
+COMMON_PACKAGES="
     wget
     unzip
     git
@@ -12,13 +12,13 @@ COMMON_PACKAGES=(
     ffmpeg
     python3
     python3-pip
-)
+"
 
 case "$OS" in
     fedora)
         PKG_MANAGER="dnf"
-        PACKAGES=(
-            "${COMMON_PACKAGES[@]}"
+        PACKAGES="
+            $COMMON_PACKAGES
             python3-virtualenv
             python3-devel
             gcc
@@ -28,25 +28,25 @@ case "$OS" in
             libjpeg-turbo-devel
             ImageMagick
             parallel
-        )
+        "
         sudo dnf makecache
         ;;
     *)
         PKG_MANAGER="apt-get"
-        PACKAGES=(
-            "${COMMON_PACKAGES[@]}"
+        PACKAGES="
+            $COMMON_PACKAGES
             python3-venv
             libgl1
             libglib2.0-0
             libjpeg-dev
             imagemagick
             parallel
-        )
+        "
         sudo apt-get update
         ;;
 esac
 
-for pkg in "${PACKAGES[@]}"; do
+for pkg in $PACKAGES; do
     case "$OS" in
         fedora)
             if ! rpm -q "$pkg" >/dev/null 2>&1; then

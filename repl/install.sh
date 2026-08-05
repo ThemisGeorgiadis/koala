@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 TOP=$(git rev-parse --show-toplevel)
 
@@ -7,23 +7,22 @@ OS=$("$TOP/.tools/detect-os.sh")
 case "$OS" in
     fedora)
         PKG_MANAGER="dnf"
-        PACKAGES=(
+        PACKAGES="
             bash curl grep gawk iptables procps-ng net-tools fail2ban iproute git patch time
-            # ufw is not available by default on Fedora
-        )
+        "
         sudo dnf makecache
         ;;
     *)
         PKG_MANAGER="apt-get"
-        PACKAGES=(
+        PACKAGES="
             bash curl grep gawk iptables ufw procps net-tools fail2ban iproute2 git patch time
-        )
+        "
         sudo apt-get update
         ;;
 esac
 
 
-for pkg in "${PACKAGES[@]}"; do
+for pkg in $PACKAGES; do
     case "$OS" in
         fedora)
             if ! rpm -q "$pkg" >/dev/null 2>&1; then

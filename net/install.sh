@@ -1,10 +1,10 @@
-#!/bin/bash
+#!/bin/sh
 
 TOP=$(git rev-parse --show-toplevel)
 
 OS=$("$TOP/.tools/detect-os.sh")
 
-COMMON_PACKAGES=(
+COMMON_PACKAGES="
     git
     curl
     wget
@@ -13,13 +13,13 @@ COMMON_PACKAGES=(
     bison
     python3
     python3-pip
-)
+"
 
 case "$OS" in
     fedora)
         PKG_MANAGER="dnf"
-        PACKAGES=(
-            "${COMMON_PACKAGES[@]}"
+        PACKAGES="
+            $COMMON_PACKAGES
             gcc
             gcc-c++
             make
@@ -49,13 +49,13 @@ case "$OS" in
             postgresql-contrib
             check
             iputils
-        )
+        "
         sudo dnf makecache
         ;;
     *)
         PKG_MANAGER="apt-get"
-        PACKAGES=(
-            "${COMMON_PACKAGES[@]}"
+        PACKAGES="
+            $COMMON_PACKAGES
             build-essential
             automake
             flex
@@ -83,18 +83,18 @@ case "$OS" in
             postgresql-contrib
             check
             iputils-ping
-        )
+        "
         sudo apt-get update
         ;;
 esac
 
-if [[ "$OS" != "fedora" ]]; then
+if [ "$OS" != "fedora" ]; then
     sudo mkdir -p /etc/apt/keyrings
     curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --yes --dearmor -o /etc/apt/keyrings/charm.gpg
     echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
 fi
 
-for pkg in "${PACKAGES[@]}"; do
+for pkg in $PACKAGES; do
     case "$OS" in
         fedora)
             if ! rpm -q "$pkg" >/dev/null 2>&1; then

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 
 TOP=$(git rev-parse --show-toplevel)
@@ -10,37 +10,34 @@ PYTHON_VER="python3"
 case "$OS" in
     fedora)
         PKG_MANAGER="dnf"
-        PACKAGES=(
-            git procps-ng autoconf automake libtool
+        PACKAGES="git procps-ng autoconf automake libtool
             gcc gcc-c++ make
             cloc time gawk jq strace lsof
             python3.11
             python3.11-devel
-            python3-pip
-        )
+            python3-pip"
         sudo dnf makecache
         PYTHON_VER="python3.11"
         ;;
     *)
         PKG_MANAGER="apt-get"
-        PACKAGES=(
-            git procps autoconf automake libtool
+        PACKAGES="git procps autoconf automake libtool
             build-essential
             cloc time gawk jq strace lsof
-            python3 python3-pip python3-venv
-        )
+            python3 python3-pip python3-venv"
         sudo apt-get update
         PYTHON_VER="python3"
         ;;
 esac
 
-cd "$(realpath "$(dirname "$0")")" || exit 1
+cd "$(dirname "$0")" || exit 1
+cd "$(pwd -P)" || exit 1
 
-sudo "$PKG_MANAGER" install -y "${PACKAGES[@]}"
+sudo "$PKG_MANAGER" install -y $PACKAGES
 VENV_DIR="$TOP/venv"
 rm -rf "$VENV_DIR"
 $PYTHON_VER -m venv "$VENV_DIR"
-source "$VENV_DIR/bin/activate"
+. "$VENV_DIR/bin/activate"
 
 pip install --upgrade pip
 pip install --break-system-packages -r "$TOP/.tools/requirements.txt"

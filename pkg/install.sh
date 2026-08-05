@@ -1,10 +1,10 @@
-#!/bin/bash
+#!/bin/sh
 
 TOP=$(git rev-parse --show-toplevel)
 
 OS=$("$TOP/.tools/detect-os.sh")
 
-COMMON_PACKAGES=(
+COMMON_PACKAGES="
     gpg
     wget
     git
@@ -20,13 +20,13 @@ COMMON_PACKAGES=(
     make
     libtool
     npm
-)
+"
 
 case "$OS" in
     fedora)
         PKG_MANAGER="dnf"
-        PACKAGES=(
-            "${COMMON_PACKAGES[@]}"
+        PACKAGES="
+            $COMMON_PACKAGES
             ncurses-devel
             xz-devel
             bzip2-devel
@@ -45,13 +45,13 @@ case "$OS" in
             libselinux-devel
             readline-devel
             java-latest-openjdk-devel
-        )
+        "
         sudo dnf makecache
         ;;
     *)
         PKG_MANAGER="apt-get"
-        PACKAGES=(
-            "${COMMON_PACKAGES[@]}"
+        PACKAGES="
+            $COMMON_PACKAGES
             libncurses5-dev
             libncursesw5-dev
             liblzma-dev
@@ -74,12 +74,12 @@ case "$OS" in
             libtool-bin
             libreadline-dev
             default-jdk
-        )
+        "
         sudo apt-get update
         ;;
 esac
 
-for pkg in "${PACKAGES[@]}"; do
+for pkg in $PACKAGES; do
     case "$OS" in
         fedora)
             if ! rpm -q "$pkg" >/dev/null 2>&1; then
@@ -94,7 +94,7 @@ for pkg in "${PACKAGES[@]}"; do
     esac
 done
 
-if [[ "$OS" != "fedora" ]]; then
+if [ "$OS" != "fedora" ]; then
     wget -qO - 'https://proget.makedeb.org/debian-feeds/makedeb.pub' | gpg --dearmor | sudo tee /usr/share/keyrings/makedeb-archive-keyring.gpg > /dev/null
     echo 'deb [signed-by=/usr/share/keyrings/makedeb-archive-keyring.gpg arch=all] https://proget.makedeb.org/ makedeb main' | sudo tee /etc/apt/sources.list.d/makedeb.list > /dev/null
 

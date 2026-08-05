@@ -1,10 +1,10 @@
-#!/bin/bash
+#!/bin/sh
 
 TOP=$(git rev-parse --show-toplevel)
 
 OS=$("$TOP/.tools/detect-os.sh")
 
-COMMON_PACKAGES=(
+COMMON_PACKAGES="
     binutils
     git
     build-essential
@@ -16,26 +16,26 @@ COMMON_PACKAGES=(
     bzip2
     zstd
     gnupg
-)
+"
 
 case "$OS" in
     fedora)
         PKG_MANAGER="dnf"
-        PACKAGES=(
-            "${COMMON_PACKAGES[@]}"
-        )
+        PACKAGES="
+            $COMMON_PACKAGES
+        "
         sudo dnf makecache
         ;;
     *)
         PKG_MANAGER="apt-get"
-        PACKAGES=(
-            "${COMMON_PACKAGES[@]}"
-        )
+        PACKAGES="
+            $COMMON_PACKAGES
+        "
         sudo apt-get update
         ;;
 esac
 
-for pkg in "${PACKAGES[@]}"; do
+for pkg in $PACKAGES; do
     case "$OS" in
         fedora)
             if ! rpm -q "$pkg" >/dev/null 2>&1; then
@@ -52,9 +52,9 @@ done
 
 eval_dir="${TOP}/ci-cd/riker"
 
-min_benchmark=(
-    "xz-clang"
-)
+min_benchmark="
+    xz-clang
+"
 
 run_min=false
 
@@ -66,7 +66,7 @@ for arg in "$@"; do
 done
 
 if [ "$run_min" = true ]; then
-    for bench in "${min_benchmark[@]}"; do
+    for bench in $min_benchmark; do
         script_path="$eval_dir/$bench/install.sh"
         if [ -x "$script_path" ]; then
             "$script_path" "$@"

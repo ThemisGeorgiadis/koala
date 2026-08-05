@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 TOP=$(git rev-parse --show-toplevel)
 OS=$("$TOP/.tools/detect-os.sh")
@@ -6,8 +6,7 @@ OS=$("$TOP/.tools/detect-os.sh")
 case "$OS" in
     fedora)
         PKG_MANAGER="dnf"
-        PACKAGES=(
-            git
+        PACKAGES="git
             gcc
             make
             ncurses-devel
@@ -16,14 +15,12 @@ case "$OS" in
             libXt-devel
             libX11-devel
             libXdmcp-devel
-            libselinux-devel
-        )
+            libselinux-devel"
         sudo dnf makecache
         ;;
     *)
         PKG_MANAGER="apt-get"
-        PACKAGES=(
-            git
+        PACKAGES="git
             gcc
             make
             libncurses-dev
@@ -32,13 +29,12 @@ case "$OS" in
             libxt-dev
             libx11-dev
             libxdmcp-dev
-            libselinux-dev
-        )
+            libselinux-dev"
         sudo apt-get update
         ;;
 esac
 
-for pkg in "${PACKAGES[@]}"; do
+for pkg in $PACKAGES; do
     case "$OS" in
         fedora)
             if ! rpm -q "$pkg" >/dev/null 2>&1; then

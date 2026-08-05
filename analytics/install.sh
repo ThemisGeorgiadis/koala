@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 set -e
 
@@ -6,7 +6,7 @@ TOP=$(git rev-parse --show-toplevel)
 
 OS=$("$TOP/.tools/detect-os.sh")
 
-COMMON_PACKAGES=(
+COMMON_PACKAGES="
     tcpdump
     curl
     wget
@@ -22,39 +22,39 @@ COMMON_PACKAGES=(
     python3
     grep
     sed
-)
+"
 
 case "$OS" in
     fedora)
         PKG_MANAGER="dnf"
-        PACKAGES=(
-            "${COMMON_PACKAGES[@]}"
+        PACKAGES="
+            $COMMON_PACKAGES
             bc
             bcftools
             gcc
             gcc-c++
             jansson-devel
             libpcap-devel
-        )
+        "
         sudo dnf makecache
         ;;
     *)
         PKG_MANAGER="apt-get"
-        PACKAGES=(
-            "${COMMON_PACKAGES[@]}"
+        PACKAGES="
+            $COMMON_PACKAGES
             bc
             bcftools
             build-essential
             libjansson-dev
             libpcap-dev
             q-text-as-data
-        )
+        "
         sudo apt-get update
         ;;
 esac
 
 
-for pkg in "${PACKAGES[@]}"; do
+for pkg in $PACKAGES; do
     case "$OS" in
         fedora)
             if ! rpm -q "$pkg" >/dev/null 2>&1; then
