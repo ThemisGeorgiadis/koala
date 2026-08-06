@@ -1,10 +1,10 @@
-#!/bin/bash
+#!/bin/sh
 
 size=full
 for arg in "$@"; do
     case "$arg" in
-    --small) size=small ;;
-    --min) size=min ;;
+        --small) size=small ;;
+        --min) size=min ;;
     esac
 done
 
@@ -13,7 +13,8 @@ OS=$("$TOP/.tools/detect-os.sh")
 
 case "$OS" in
     fedora)
-        PACKAGES=(
+        PKG_MANAGER="dnf"
+        PACKAGES="
             gcc
             gcc-c++
             make
@@ -43,11 +44,12 @@ case "$OS" in
             unzip
             minimap2
             samtools
-        )
+        "
         sudo dnf makecache
         ;;
     *)
-        PACKAGES=(
+        PKG_MANAGER="apt-get"
+        PACKAGES="
             build-essential
             git
             wget
@@ -80,12 +82,12 @@ case "$OS" in
             libncursesw5-dev
             minimap2
             samtools
-        )
+        "
         sudo apt-get update
         ;;
 esac
 
-for pkg in "${PACKAGES[@]}"; do
+for pkg in $PACKAGES; do
     case "$OS" in
         fedora)
             if ! rpm -q "$pkg" >/dev/null 2>&1; then
@@ -93,14 +95,14 @@ for pkg in "${PACKAGES[@]}"; do
             fi
             ;;
         *)
-            if ! dpkg -s "$pkg" >/dev/null 2>&1; then
+            if ! dpkg -l | grep -q "^ii\\s\\+$pkg\\s"; then
                 sudo apt-get install -y --no-install-recommends "$pkg"
             fi
             ;;
     esac
 done
 
-if [[ "$size" == "min" ]]; then
+if [ "$size" = "min" ]; then
     exit 0
 fi
 
@@ -138,46 +140,47 @@ pip3 install --no-cache-dir --break-system-packages \
 # 3. Install bioinformatics binaries
 ## samtools & minimap2
 # Prefer system versions if available; otherwise build from source
+NPROC=$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)
 command -v samtools >/dev/null 2>&1 || { \
     git clone --depth 1 https://github.com/samtools/samtools.git /tmp/samtools \
     && cd /tmp/samtools \
     && autoheader && autoconf -Wno-syntax -Wno-error \
     && ./configure --prefix=/usr/local \
-    && make -j$(nproc) && make install \
+    && make -j"$NPROC" && make install \
     && cd / && rm -rf /tmp/samtools; }
 
 command -v minimap2 >/dev/null 2>&1 || { \
     git clone --depth 1 https://github.com/lh3/minimap2.git /tmp/minimap2 \
     && cd /tmp/minimap2 \
-    && make -j$(nproc) \
+    && make -j"$NPROC" \
     && cp minimap2 /usr/local/bin/ \
     && cp *.py /usr/local/bin/ \
     && cd / && rm -rf /tmp/minimap2; }
 
 ## seqkit
 command -v seqkit >/dev/null 2>&1 || {
-  curl -L https://github.com/shenwei356/seqkit/releases/download/v2.1.0/seqkit_linux_amd64.tar.gz \
-    -o /tmp/seqkit.tar.gz \
-  &&
-  tar -xzf /tmp/seqkit.tar.gz -C /tmp seqkit --no-same-owner \
-  &&
-  mv /tmp/seqkit /usr/local/bin/seqkit \
-  && chmod +x /usr/local/bin/seqkit \
-  && rm /tmp/seqkit.tar.gz
+    curl -L https://github.com/shenwei356/seqkit/releases/download/v2.1.0/seqkit_linux_amd64.tar.gz \
+        -o /tmp/seqkit.tar.gz \
+    &&
+    tar -xzf /tmp/seqkit.tar.gz -C /tmp seqkit --no-same-owner \
+    &&
+    mv /tmp/seqkit /usr/local/bin/seqkit \
+    && chmod +x /usr/local/bin/seqkit \
+    && rm /tmp/seqkit.tar.gz
 }
 
 if ! command -v STAR >/dev/null 2>&1; then
-  tmpdir=$(mktemp -d)
-  wget -qO "$tmpdir/STAR_2.7.11b.zip" \
-    https://github.com/alexdobin/STAR/releases/download/2.7.11b/STAR_2.7.11b.zip
+    tmpdir=$(mktemp -d)
+    wget -qO "$tmpdir/STAR_2.7.11b.zip" \
+        https://github.com/alexdobin/STAR/releases/download/2.7.11b/STAR_2.7.11b.zip
 
-  unzip -q "$tmpdir/STAR_2.7.11b.zip" -d "$tmpdir"
+    unzip -q "$tmpdir/STAR_2.7.11b.zip" -d "$tmpdir"
 
-  install -m 0755 \
-    "$tmpdir/STAR_2.7.11b/Linux_x86_64_static/STAR" \
-    /usr/local/bin/STAR
+    install -m 0755 \
+        "$tmpdir/STAR_2.7.11b/Linux_x86_64_static/STAR" \
+        /usr/local/bin/STAR
 
-  rm -rf "$tmpdir"
+    rm -rf "$tmpdir"
 fi
 
 # # 4. Install Jvarkit
@@ -195,7 +198,7 @@ if [ ! -f /usr/local/bin/nanopolish ]; then
     git clone --recursive https://github.com/jts/nanopolish.git /tmp/nanopolish \
     && cd /tmp/nanopolish \
     && git checkout 480fc85 \
-    && make -j$(nproc) \
+    && make -j"$NPROC" \
     && cp nanopolish /usr/local/bin/ \
     && cd / && rm -rf /tmp/nanopolish;
 fi
