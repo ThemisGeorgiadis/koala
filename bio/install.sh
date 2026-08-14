@@ -1,106 +1,47 @@
 #!/bin/sh
 
-size=full
-for arg in "$@"; do
-    case "$arg" in
-        --small) size=small ;;
-        --min) size=min ;;
-    esac
-done
-
 TOP=$(git rev-parse --show-toplevel)
 OS=$("$TOP/.tools/detect-os.sh")
 
-case "$OS" in
-    fedora)
-        PKG_MANAGER="dnf"
-        PACKAGES="
-            gcc
-            gcc-c++
-            make
-            git
-            wget
-            curl
-            python3
-            python3-devel
-            python3-pip
-            perl
-            perl-App-cpanminus
-            perl-DBI
-            zlib-ng-compat-devel
-            bzip2-devel
-            xz-devel
-            libcurl-devel
-            openssl-devel
-            ncurses-devel
-            openjdk-17-devel
-            R
-            R-devel
-            gradle
-            cmake
-            gffread
-            gmap
-            parallel
-            unzip
-            minimap2
-            samtools
-        "
-        sudo dnf makecache
-        ;;
-    *)
-        PKG_MANAGER="apt-get"
-        PACKAGES="
-            build-essential
-            git
-            wget
-            curl
-            python3
-            python3-dev
-            python3.11-dev
-            python3-all-dev
-            python3-pip
-            perl
-            cpanminus
-            libdbi-perl
-            zlib1g-dev
-            libbz2-dev
-            liblzma-dev
-            libcurl4-openssl-dev
-            openjdk-17-jdk
-            default-jre-headless
-            r-base
-            r-base-dev
-            gradle
-            cmake
-            make
-            gcc
-            g++
-            gffread
-            gmap
-            parallel
-            libncurses5-dev
-            libncursesw5-dev
-            minimap2
-            samtools
-        "
-        sudo apt-get update
-        ;;
-esac
+size=full
+for arg in "$@"; do
+    case "$arg" in
+    --small) size=small ;;
+    --min) size=min ;;
+    esac
+done
 
-for pkg in $PACKAGES; do
-    case "$OS" in
-        fedora)
+case "$OS" in
+    debian)
+        sudo apt-get update
+        pkgs="build-essential libncurses5-dev libncursesw5-dev libbz2-dev liblzma-dev libcurl4-openssl-dev libssl-dev wget zlib1g-dev minimap2 samtools"
+
+        for pkg in $pkgs; do
+            if ! dpkg -s "$pkg" >/dev/null 2>&1; then
+                sudo apt-get install -y --no-install-recommends "$pkg"
+            fi
+        done
+        ;;
+    macos)
+        # ncurses/bzip2/xz/zlib headers ship with the Xcode SDK; libcurl ships
+        # with the OS. minimap2/samtools have direct brew formulae.
+        if ! xcode-select -p >/dev/null 2>&1; then
+            echo "Xcode Command Line Tools required: run 'xcode-select --install' first." >&2
+            exit 1
+        fi
+        brew install wget minimap2 samtools
+        ;;
+    fedora)
+        sudo dnf makecache
+        pkgs="gcc gcc-c++ make ncurses-devel bzip2-devel xz-devel libcurl-devel openssl-devel wget zlib-ng-compat-devel minimap2 samtools perl-Digest-SHA"
+
+        for pkg in $pkgs; do
             if ! rpm -q "$pkg" >/dev/null 2>&1; then
                 sudo dnf install -y "$pkg"
             fi
-            ;;
-        *)
-            if ! dpkg -l | grep -q "^ii\\s\\+$pkg\\s"; then
-                sudo apt-get install -y --no-install-recommends "$pkg"
-            fi
-            ;;
-    esac
-done
+        done
+        ;;
+esac
 
 if [ "$size" = "min" ]; then
     exit 0
@@ -111,76 +52,189 @@ benchmark_dir="${TOP}/bio"
 
 # install.sh: Installs system-wide dependencies for the TERA-Seq pipeline
 
-sudo wget -qO /usr/local/bin/liftOver http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/liftOver
-sudo chmod +x /usr/local/bin/liftOver
-
+# 1. Install OS packages
 case "$OS" in
-    fedora)
-        export CFLAGS="-I/usr/include/python3 -I/usr/include/python3/cpython"
-        ;;
-    *)
+    debian)
+        sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            git \
+            wget \
+            curl \
+            python3 \
+            python3-dev \
+            python3.11-dev \
+            python3-all-dev \
+            python3-pip \
+            perl \
+            cpanminus \
+            libdbi-perl \
+            zlib1g-dev \
+            libbz2-dev \
+            liblzma-dev \
+            libcurl4-openssl-dev \
+            openjdk-17-jdk \
+            default-jre-headless \
+            r-base \
+            r-base-dev \
+            gradle \
+            cmake \
+            make \
+            gcc \
+            g++ \
+            gffread \
+            gmap \
+            parallel \
+         && rm -rf /var/lib/apt/lists/*
+
+        sudo wget -qO /usr/local/bin/liftOver http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/liftOver
+        sudo chmod +x /usr/local/bin/liftOver
+
         export CFLAGS="-I/usr/include/python3.11 -I/usr/include/python3.11/cpython"
+        export CPPFLAGS="$CFLAGS"
+        ;;
+    macos)
+        # libdbi-perl has no brew formula; installed via cpanm in section 6
+        # below. seqkit/rna-star are added here (brew formulae exist) so the
+        # Linux-binary fallbacks in sections 3 and 4 no-op via their existing
+        # `command -v` checks.
+        brew install git wget curl python3 perl cpanminus openjdk@17 r gradle cmake \
+            gffread parallel seqkit rna-star
+
+        # liftOver: UCSC also publishes macOS binaries, at a different path
+        # per architecture than the Linux one the debian branch uses above.
+        if [ "$(uname -m)" = "arm64" ]; then
+            liftover_url="http://hgdownload.cse.ucsc.edu/admin/exe/macOSX.arm64/liftOver"
+        else
+            liftover_url="http://hgdownload.cse.ucsc.edu/admin/exe/macOSX.x86_64/liftOver"
+        fi
+        sudo wget -qO /usr/local/bin/liftOver "$liftover_url"
+        sudo chmod +x /usr/local/bin/liftOver
+
+        # gmap/gmap_build: no brew formula, built from source same as the
+        # nanopolish fallback in section 5 below.
+        if ! command -v gmap >/dev/null 2>&1; then
+            gmap_tmp=$(mktemp -d)
+            curl -L http://research-pub.gene.com/gmap/src/gmap-gsnap-2025-07-31.v2.tar.gz \
+                -o "$gmap_tmp/gmap.tar.gz" \
+            && tar -xzf "$gmap_tmp/gmap.tar.gz" -C "$gmap_tmp" \
+            && gmap_srcdir=$(find "$gmap_tmp" -maxdepth 1 -type d -name 'gmap-gsnap-*') \
+            && cd "$gmap_srcdir" \
+            && ./configure \
+            && make -j"$(sysctl -n hw.ncpu)" \
+            && sudo make install \
+            && cd - >/dev/null || exit 1
+            rm -rf "$gmap_tmp"
+        fi
+
+        # Prebuilt macOS wheels exist for this pipeline's Python packages, so
+        # the explicit Python-header CFLAGS the debian branch needs aren't.
+        ;;
+    fedora)
+        sudo dnf install -y \
+            gcc \
+            gcc-c++ \
+            make \
+            git \
+            wget \
+            curl \
+            python3 \
+            python3-devel \
+            python3-pip \
+            perl \
+            perl-App-cpanminus \
+            perl-DBI \
+            zlib-ng-compat-devel \
+            bzip2-devel \
+            xz-devel \
+            libcurl-devel \
+            openssl-devel \
+            ncurses-devel \
+            openjdk-17-devel \
+            R \
+            R-devel \
+            gradle \
+            cmake \
+            gffread \
+            gmap \
+            parallel \
+            unzip
+
+        sudo wget -qO /usr/local/bin/liftOver http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/liftOver
+        sudo chmod +x /usr/local/bin/liftOver
+
+        export CFLAGS="-I/usr/include/python3 -I/usr/include/python3/cpython"
+        export CPPFLAGS="$CFLAGS"
         ;;
 esac
 
-export CPPFLAGS="$CFLAGS"
-
 # 2. Install Python packages
+# Pin versions to match the working container for reproducible output
 pip3 install --no-cache-dir --break-system-packages \
     cutadapt \
-    pysam \
-    numpy \
-    pandas \
-    matplotlib \
-    seaborn \
+    pysam==0.24.0 \
+    numpy==1.26.4 \
+    pandas==3.0.5 \
+    matplotlib==3.11.1 \
+    seaborn==0.13.2 \
     deeptools==3.5.0 \
     ont-fast5-api==3.3.0 \
-    h5py
+    h5py==3.14.0
 
 # 3. Install bioinformatics binaries
-## samtools & minimap2
-# Prefer system versions if available; otherwise build from source
-NPROC=$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)
-command -v samtools >/dev/null 2>&1 || { \
-    git clone --depth 1 https://github.com/samtools/samtools.git /tmp/samtools \
-    && cd /tmp/samtools \
-    && autoheader && autoconf -Wno-syntax -Wno-error \
-    && ./configure --prefix=/usr/local \
-    && make -j"$NPROC" && make install \
-    && cd / && rm -rf /tmp/samtools; }
+# Ensure /usr/local/bin takes precedence over stale distro binaries
+export PATH="/usr/local/bin:/usr/local/sbin:$PATH"
 
-command -v minimap2 >/dev/null 2>&1 || { \
-    git clone --depth 1 https://github.com/lh3/minimap2.git /tmp/minimap2 \
+# Use exact versions from the working container to match reference hashes
+SAMTOOLS_VERSION="${SAMTOOLS_VERSION:-1.16.1}"
+MINIMAP2_VERSION="${MINIMAP2_VERSION:-r1122}"
+SEQKIT_VERSION="${SEQKIT_VERSION:-v2.1.0}"
+STAR_VERSION="${STAR_VERSION:-2.7.11b}"
+NPROC=$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)
+
+## samtools - install exact release version with sudo to ensure it replaces distro version
+if ! command -v samtools >/dev/null 2>&1 || ! samtools --version 2>&1 | grep -q "$SAMTOOLS_VERSION"; then
+    curl -L "https://github.com/samtools/samtools/releases/download/${SAMTOOLS_VERSION}/samtools-${SAMTOOLS_VERSION}.tar.bz2" \
+        -o /tmp/samtools.tar.bz2
+    tar -xjf /tmp/samtools.tar.bz2 -C /tmp
+    cd "/tmp/samtools-${SAMTOOLS_VERSION}"
+    ./configure --prefix=/usr/local
+    make -j"$NPROC"
+    sudo make install
+    cd / && rm -rf "/tmp/samtools-${SAMTOOLS_VERSION}" /tmp/samtools.tar.bz2
+fi
+
+## minimap2 - use exact tag from working container
+if ! command -v minimap2 >/dev/null 2>&1 || ! minimap2 --version 2>&1 | grep -q "$MINIMAP2_VERSION"; then
+    git clone --depth 1 --branch "$MINIMAP2_VERSION" https://github.com/lh3/minimap2.git /tmp/minimap2 \
     && cd /tmp/minimap2 \
     && make -j"$NPROC" \
-    && cp minimap2 /usr/local/bin/ \
-    && cp *.py /usr/local/bin/ \
-    && cd / && rm -rf /tmp/minimap2; }
+    && sudo install -m 0755 minimap2 /usr/local/bin/minimap2 \
+    && sudo install -m 0755 ./*.py /usr/local/bin/ 2>/dev/null || true \
+    && cd / && rm -rf /tmp/minimap2
+fi
 
-## seqkit
-command -v seqkit >/dev/null 2>&1 || {
-    curl -L https://github.com/shenwei356/seqkit/releases/download/v2.1.0/seqkit_linux_amd64.tar.gz \
-        -o /tmp/seqkit.tar.gz \
-    &&
-    tar -xzf /tmp/seqkit.tar.gz -C /tmp seqkit --no-same-owner \
-    &&
-    mv /tmp/seqkit /usr/local/bin/seqkit \
-    && chmod +x /usr/local/bin/seqkit \
-    && rm /tmp/seqkit.tar.gz
-}
+## seqkit - use exact version
+if ! command -v seqkit >/dev/null 2>&1 || ! seqkit version 2>&1 | grep -q "$SEQKIT_VERSION"; then
+  curl -L "https://github.com/shenwei356/seqkit/releases/download/${SEQKIT_VERSION}/seqkit_linux_amd64.tar.gz" \
+    -o /tmp/seqkit.tar.gz \
+  && tar -xzf /tmp/seqkit.tar.gz -C /tmp seqkit --no-same-owner \
+  && sudo install -m 0755 /tmp/seqkit /usr/local/bin/seqkit \
+  && rm /tmp/seqkit.tar.gz /tmp/seqkit
+fi
 
-if ! command -v STAR >/dev/null 2>&1; then
-    tmpdir=$(mktemp -d)
-    wget -qO "$tmpdir/STAR_2.7.11b.zip" \
-        https://github.com/alexdobin/STAR/releases/download/2.7.11b/STAR_2.7.11b.zip
+## STAR - use exact version
+if ! command -v STAR >/dev/null 2>&1 || ! STAR --version 2>&1 | grep -q "$STAR_VERSION"; then
+  tmpdir=$(mktemp -d)
+  wget -qO "$tmpdir/STAR_${STAR_VERSION}.zip" \
+    "https://github.com/alexdobin/STAR/releases/download/${STAR_VERSION}/STAR_${STAR_VERSION}.zip"
 
-    unzip -q "$tmpdir/STAR_2.7.11b.zip" -d "$tmpdir"
+  unzip -q "$tmpdir/STAR_${STAR_VERSION}.zip" -d "$tmpdir"
 
-    install -m 0755 \
-        "$tmpdir/STAR_2.7.11b/Linux_x86_64_static/STAR" \
-        /usr/local/bin/STAR
+  sudo install -m 0755 \
+    "$tmpdir/STAR_${STAR_VERSION}/Linux_x86_64_static/STAR" \
+    /usr/local/bin/STAR
 
-    rm -rf "$tmpdir"
+  rm -rf "$tmpdir"
 fi
 
 # # 4. Install Jvarkit
@@ -245,24 +299,19 @@ Rscript -e 'install.packages(c(
     "ggplot2",
     "reshape2"
   ), repos="https://cloud.r-project.org")'
-
 Rscript -e 'install.packages("https://cran.r-project.org/src/contrib/Archive/GeneCycle/GeneCycle_1.1.5.tar.gz", repos=NULL, type="source")'
 
 # 8. Install sam_to_sqlite and annotate-sqlite-with-fastq
 # Assuming these scripts are in tools/utils
-cd "${benchmark_dir}"
+cd "${benchmark_dir}" || exit 1
 chmod +x utils/*
 
 # Cleanup
 case "$OS" in
-    fedora)
-        dnf clean all
-        rm -rf /var/cache/dnf/
+    debian)
+        apt-get clean && rm -rf /var/lib/apt/lists/ /tmp/*
         ;;
-    *)
-        apt-get clean
-        rm -rf /var/lib/apt/lists/
+    fedora)
+        dnf clean all && rm -rf /var/cache/dnf/ /tmp/*
         ;;
 esac
-
-rm -rf /tmp/*
