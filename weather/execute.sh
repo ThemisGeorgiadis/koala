@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/bin/sh
+
 
 TOP=$(git rev-parse --show-toplevel)
 
@@ -8,6 +9,7 @@ scripts_dir="${eval_dir}/scripts"
 input_dir="${eval_dir}/inputs"
 
 export LC_ALL=C
+export MPLBACKEND=Agg
 
 size=full
 selected_scripts=""
