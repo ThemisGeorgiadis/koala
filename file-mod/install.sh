@@ -37,7 +37,7 @@ install_build_dependencies() {
                 libfreetype6-dev fontconfig \
                 libgs-dev librsvg2-dev \
                 libltdl-dev \
-                lame liblame-dev
+                lame libmp3lame-dev
             ;;
 
         fedora)
