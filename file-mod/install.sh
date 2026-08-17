@@ -5,89 +5,87 @@ set -eu
 TOP=$(git rev-parse --show-toplevel)
 OS=$("$TOP/.tools/detect-os.sh")
 
-install_ffmpeg_5_1_9_fedora() {
-    echo "Installing FFmpeg 5.1.9 from source for Fedora"
+LEGACY_BIN="/usr/local/legacy-bin"
 
-    src_dir="/tmp/ffmpeg-5.1.9"
-    tarball="/tmp/ffmpeg-5.1.9.tar.gz"
-    prefix="/usr/local/ffmpeg-5.1.9"
-    ffmpeg_bin="$prefix/bin/ffmpeg"
+FFMPEG_VERSION="5.1.9"
+FFMPEG_PREFIX="/usr/local/ffmpeg-${FFMPEG_VERSION}"
 
-    if [ -x "$ffmpeg_bin" ]; then
-        actual="$("$ffmpeg_bin" -version 2>&1 | head -n 1 || true)"
-        if printf '%s\n' "$actual" | grep -Fq "ffmpeg version 5.1.9" &&
-           "$ffmpeg_bin" -hide_banner -encoders 2>/dev/null | grep -q 'libmp3lame'; then
-            echo "FFmpeg 5.1.9 with MP3 support already installed; skipping rebuild"
-            return 0
-        fi
-        echo "FFmpeg 5.1.9 is present but MP3 support is missing; rebuilding"
-    fi
+LIBJPEG_VERSION="2.1.5"
+LIBJPEG_PREFIX="/usr/local/libjpeg-${LIBJPEG_VERSION}"
 
-    if ! rpm -q lame-devel >/dev/null 2>&1; then
-        sudo dnf install -y lame-devel
-    fi
+LIBPNG_VERSION="1.6.39"
+LIBPNG_PREFIX="/usr/local/libpng-${LIBPNG_VERSION}"
 
-    sudo dnf install -y \
-        gcc gcc-c++ make nasm yasm pkgconf-pkg-config \
-        wget curl tar xz git perl bzip2 gzip
+IMAGEMAGICK_VERSION="6.9.11-60"
+IMAGEMAGICK_PREFIX="/usr/local/imagemagick-${IMAGEMAGICK_VERSION}"
 
-    rm -rf "$src_dir"
-    curl -L --fail \
-        "https://www.ffmpeg.org/releases/ffmpeg-5.1.9.tar.gz" \
-        -o "$tarball"
-    tar -xzf "$tarball" -C /tmp
 
-    cd "$src_dir"
-    ./configure \
-        --prefix="$prefix" \
-        --disable-doc \
-        --disable-debug \
-        --enable-gpl \
-        --enable-version3 \
-        --enable-shared \
-        --enable-libmp3lame \
-        --extra-ldflags="-Wl,-rpath,$prefix/lib"
+install_build_dependencies() {
+    echo "Installing build dependencies for $OS"
 
-    make -j"$(nproc)"
-    sudo make install
+    case "$OS" in
+        debian)
+            sudo apt-get update
+            sudo apt-get install -y \
+                sudo coreutils wget unzip gzip gawk sed git openssl curl \
+                unrtf zstd xz-utils \
+                gcc g++ make nasm yasm pkg-config \
+                cmake perl bzip2 \
+                autoconf automake libtool \
+                zlib1g-dev \
+                libtiff-dev libwebp-dev libxml2-dev \
+                libfreetype6-dev fontconfig \
+                libgs-dev librsvg2-dev \
+                libltdl-dev \
+                lame liblame-dev
+            ;;
 
-    sudo install -m 0755 "$ffmpeg_bin" /usr/local/bin/ffmpeg
-    sudo install -m 0755 "$prefix/bin/ffprobe" /usr/local/bin/ffprobe
+        fedora)
+            sudo dnf makecache
+            sudo dnf install -y \
+                sudo coreutils wget unzip gzip gawk sed git openssl curl \
+                unrtf zstd xz \
+                gcc gcc-c++ make nasm yasm pkgconf-pkg-config \
+                cmake perl bzip2 \
+                autoconf automake libtool libtool-ltdl-devel \
+                zlib-devel \
+                libtiff-devel libwebp-devel libxml2-devel \
+                freetype-devel fontconfig-devel \
+                ghostscript-devel librsvg2-devel \
+                lame lame-devel
+            ;;
 
-    sudo sh -c "echo '$prefix/lib' > /etc/ld.so.conf.d/ffmpeg-5.1.9.conf"
-    sudo ldconfig
-
-    actual="$("$ffmpeg_bin" -version 2>&1 | head -n 1)"
-    echo "FFmpeg installed: $actual"
-
-    if ! printf '%s\n' "$actual" | grep -Fq "ffmpeg version 5.1.9"; then
-        echo "FFmpeg installation failed: expected 5.1.9 but got '$actual'" >&2
-        exit 1
-    fi
+        *)
+            echo "Unsupported OS for legacy source builds: $OS" >&2
+            exit 1
+            ;;
+    esac
 }
 
-install_libjpeg_2_1_5_fedora() {
-    echo "Installing libjpeg-turbo 2.1.5"
 
-    src_dir="/tmp/libjpeg-turbo-2.1.5"
-    tarball="/tmp/libjpeg-turbo-2.1.5.tar.gz"
-    prefix="/usr/local/libjpeg-2.1.5"
+install_libjpeg_2_1_5() {
+    echo "Installing libjpeg-turbo ${LIBJPEG_VERSION}"
+
+    src_dir="/tmp/libjpeg-turbo-${LIBJPEG_VERSION}"
+    tarball="/tmp/libjpeg-turbo-${LIBJPEG_VERSION}.tar.gz"
+    prefix="$LIBJPEG_PREFIX"
     libdir="$prefix/lib64"
 
     if [ -x "$prefix/bin/cjpeg" ]; then
         actual="$("$prefix/bin/cjpeg" -version 2>&1 | head -n 1 || true)"
-        if printf '%s\n' "$actual" | grep -Fq '2.1.5'; then
-            echo "libjpeg-turbo 2.1.5 already installed; skipping rebuild"
+
+        if printf '%s\n' "$actual" | grep -Fq "$LIBJPEG_VERSION"; then
+            echo "libjpeg-turbo ${LIBJPEG_VERSION} already installed; skipping rebuild"
             return 0
         fi
     fi
 
-    sudo dnf install -y gcc make cmake curl tar xz gzip
-
     rm -rf "$src_dir" "$tarball"
+
     curl -L --fail \
-        "https://downloads.sourceforge.net/libjpeg-turbo/2.1.5/libjpeg-turbo-2.1.5.tar.gz" \
+        "https://downloads.sourceforge.net/libjpeg-turbo/${LIBJPEG_VERSION}/libjpeg-turbo-${LIBJPEG_VERSION}.tar.gz" \
         -o "$tarball"
+
     tar -xzf "$tarball" -C /tmp
 
     cmake -S "$src_dir" -B "$src_dir/build" \
@@ -101,35 +99,49 @@ install_libjpeg_2_1_5_fedora() {
     cmake --build "$src_dir/build" -j"$(nproc)"
     sudo cmake --install "$src_dir/build"
 
-    sudo ln -sfn "$libdir" "$prefix/lib"
-    sudo sh -c "echo '$libdir' > /etc/ld.so.conf.d/libjpeg-2.1.5.conf"
-    sudo ldconfig
+    # libjpeg-turbo uses lib64 on some platforms.
+    # Keep a stable $prefix/lib path for the consumers we build below.
+    if [ -d "$libdir" ]; then
+        sudo ln -sfn "$libdir" "$prefix/lib"
+    fi
+
+    actual="$("$prefix/bin/cjpeg" -version 2>&1 | head -n 1)"
+
+    echo "libjpeg-turbo installed: $actual"
+
+    if ! printf '%s\n' "$actual" | grep -Fq "$LIBJPEG_VERSION"; then
+        echo "libjpeg-turbo installation failed: expected ${LIBJPEG_VERSION}" >&2
+        exit 1
+    fi
 }
 
-install_libpng_1_6_39_fedora() {
-    echo "Installing libpng 1.6.39"
 
-    src_dir="/tmp/libpng-1.6.39"
-    tarball="/tmp/libpng-1.6.39.tar.gz"
-    prefix="/usr/local/libpng-1.6.39"
+install_libpng_1_6_39() {
+    echo "Installing libpng ${LIBPNG_VERSION}"
+
+    src_dir="/tmp/libpng-${LIBPNG_VERSION}"
+    tarball="/tmp/libpng-${LIBPNG_VERSION}.tar.gz"
+    prefix="$LIBPNG_PREFIX"
 
     if [ -x "$prefix/bin/pngfix" ]; then
         actual="$("$prefix/bin/pngfix" -V 2>&1 | head -n 1 || true)"
-        if printf '%s\n' "$actual" | grep -Fq '1.6.39'; then
-            echo "libpng 1.6.39 already installed; skipping rebuild"
+
+        if printf '%s\n' "$actual" | grep -Fq "$LIBPNG_VERSION"; then
+            echo "libpng ${LIBPNG_VERSION} already installed; skipping rebuild"
             return 0
         fi
     fi
 
-    sudo dnf install -y gcc make curl tar xz gzip zlib-devel
-
     rm -rf "$src_dir" "$tarball"
+
     curl -L --fail \
-        "https://download.sourceforge.net/libpng/libpng-1.6.39.tar.gz" \
+        "https://download.sourceforge.net/libpng/libpng-${LIBPNG_VERSION}.tar.gz" \
         -o "$tarball"
+
     tar -xzf "$tarball" -C /tmp
 
     cd "$src_dir"
+
     ./configure \
         --prefix="$prefix" \
         --enable-shared \
@@ -138,50 +150,62 @@ install_libpng_1_6_39_fedora() {
     make -j"$(nproc)"
     sudo make install
 
-    sudo sh -c "echo '$prefix/lib' > /etc/ld.so.conf.d/libpng-1.6.39.conf"
-    sudo ldconfig
+    actual="$("$prefix/bin/pngfix" -V 2>&1 | head -n 1)"
+
+    echo "libpng installed: $actual"
+
+    if ! printf '%s\n' "$actual" | grep -Fq "$LIBPNG_VERSION"; then
+        echo "libpng installation failed: expected ${LIBPNG_VERSION}" >&2
+        exit 1
+    fi
 }
 
-install_imagemagick_6_9_11_60_fedora() {
-    echo "Installing ImageMagick 6.9.11-60 from source for Fedora"
 
-    install_libjpeg_2_1_5_fedora
-    install_libpng_1_6_39_fedora
+install_imagemagick_6_9_11_60() {
+    echo "Installing ImageMagick ${IMAGEMAGICK_VERSION} from source"
 
-    src_dir="/tmp/ImageMagick-6.9.11-60"
-    tarball="/tmp/ImageMagick-6.9.11-60.tar.xz"
-    prefix="/usr/local/imagemagick-6.9.11-60"
+    install_libjpeg_2_1_5
+    install_libpng_1_6_39
+
+    src_dir="/tmp/ImageMagick-${IMAGEMAGICK_VERSION}"
+    tarball="/tmp/ImageMagick-${IMAGEMAGICK_VERSION}.tar.xz"
+    prefix="$IMAGEMAGICK_PREFIX"
     convert_bin="$prefix/bin/convert"
 
     if [ -x "$convert_bin" ]; then
         actual="$("$convert_bin" -version 2>&1 | head -n 1 || true)"
-        if printf '%s\n' "$actual" | grep -Fq "Version: ImageMagick 6.9.11-60"; then
-            echo "ImageMagick 6.9.11-60 already installed; skipping rebuild"
+
+        if printf '%s\n' "$actual" | grep -Fq \
+            "Version: ImageMagick ${IMAGEMAGICK_VERSION}"; then
+            echo "ImageMagick ${IMAGEMAGICK_VERSION} already installed; skipping rebuild"
             return 0
         fi
     fi
 
-    sudo dnf install -y \
-        gcc gcc-c++ make pkgconf-pkg-config \
-        curl tar xz git perl bzip2 gzip \
-        autoconf automake libtool libtool-ltdl-devel \
-        libtiff-devel libwebp-devel libxml2-devel \
-        freetype-devel fontconfig-devel \
-        ghostscript-devel librsvg2-devel
-
     rm -rf "$src_dir"
+
     curl -L --fail \
-        "https://download.imagemagick.org/archive/releases/ImageMagick-6.9.11-60.tar.xz" \
+        "https://download.imagemagick.org/archive/releases/ImageMagick-${IMAGEMAGICK_VERSION}.tar.xz" \
         -o "$tarball"
+
     tar -xJf "$tarball" -C /tmp
 
     cd "$src_dir"
 
-    PKG_CONFIG_PATH="/usr/local/libjpeg-2.1.5/lib64/pkgconfig:/usr/local/libpng-1.6.39/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" \
-    CPPFLAGS="-I/usr/local/libjpeg-2.1.5/include -I/usr/local/libpng-1.6.39/include" \
-    LDFLAGS="-L/usr/local/libjpeg-2.1.5/lib64 -L/usr/local/libpng-1.6.39/lib \
-        -Wl,-rpath,/usr/local/libjpeg-2.1.5/lib64 \
-        -Wl,-rpath,/usr/local/libpng-1.6.39/lib \
+    JPEG_LIB="$LIBJPEG_PREFIX/lib64"
+
+    if [ ! -d "$JPEG_LIB" ]; then
+        JPEG_LIB="$LIBJPEG_PREFIX/lib"
+    fi
+
+    PNG_LIB="$LIBPNG_PREFIX/lib"
+
+    PKG_CONFIG_PATH="$JPEG_LIB/pkgconfig:$PNG_LIB/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" \
+    CPPFLAGS="-I$LIBJPEG_PREFIX/include -I$LIBPNG_PREFIX/include" \
+    LDFLAGS="-L$JPEG_LIB \
+        -L$PNG_LIB \
+        -Wl,-rpath,$JPEG_LIB \
+        -Wl,-rpath,$PNG_LIB \
         -Wl,-rpath,$prefix/lib" \
     ./configure \
         --prefix="$prefix" \
@@ -193,51 +217,142 @@ install_imagemagick_6_9_11_60_fedora() {
     make -j"$(nproc)"
     sudo make install
 
-    sudo install -m 0755 "$convert_bin" /usr/local/bin/convert
-    sudo install -m 0755 "$prefix/bin/mogrify" /usr/local/bin/mogrify
-    sudo install -m 0755 "$prefix/bin/identify" /usr/local/bin/identify
-
-    sudo sh -c "echo '$prefix/lib' > /etc/ld.so.conf.d/imagemagick-6.9.11-60.conf"
-    sudo ldconfig
-
     actual="$("$convert_bin" -version 2>&1 | head -n 1)"
+
     echo "ImageMagick installed: $actual"
 
-    if ! printf '%s\n' "$actual" | grep -Fq "Version: ImageMagick 6.9.11-60"; then
-        echo "ImageMagick installation failed: expected 6.9.11-60 but got '$actual'" >&2
+    if ! printf '%s\n' "$actual" | grep -Fq \
+        "Version: ImageMagick ${IMAGEMAGICK_VERSION}"; then
+        echo "ImageMagick installation failed: expected ${IMAGEMAGICK_VERSION}" >&2
         exit 1
     fi
 
-    if ! ldd "$convert_bin" | grep -Fq '/usr/local/libjpeg-2.1.5/'; then
-        echo "ImageMagick is not linked against libjpeg-turbo 2.1.5" >&2
+    echo "Checking ImageMagick library dependencies..."
+
+    if ! ldd "$convert_bin" | grep -Fq "$LIBJPEG_PREFIX/"; then
+        echo "ImageMagick is not linked against libjpeg-turbo ${LIBJPEG_VERSION}" >&2
+        ldd "$convert_bin" >&2
         exit 1
     fi
 
-    if ! ldd "$convert_bin" | grep -Fq '/usr/local/libpng-1.6.39/'; then
-        echo "ImageMagick is not linked against libpng 1.6.39" >&2
+    if ! ldd "$convert_bin" | grep -Fq "$LIBPNG_PREFIX/"; then
+        echo "ImageMagick is not linked against libpng ${LIBPNG_VERSION}" >&2
+        ldd "$convert_bin" >&2
+        exit 1
+    fi
+
+    echo "ImageMagick is correctly linked against legacy JPEG/PNG libraries"
+}
+
+
+install_ffmpeg_5_1_9() {
+    echo "Installing FFmpeg ${FFMPEG_VERSION} from source"
+
+    src_dir="/tmp/ffmpeg-${FFMPEG_VERSION}"
+    tarball="/tmp/ffmpeg-${FFMPEG_VERSION}.tar.gz"
+    prefix="$FFMPEG_PREFIX"
+    ffmpeg_bin="$prefix/bin/ffmpeg"
+
+    if [ -x "$ffmpeg_bin" ]; then
+        actual="$("$ffmpeg_bin" -version 2>&1 | head -n 1 || true)"
+
+        if printf '%s\n' "$actual" | grep -Fq "ffmpeg version ${FFMPEG_VERSION}" &&
+           "$ffmpeg_bin" -hide_banner -encoders 2>/dev/null |
+               grep -q 'libmp3lame'; then
+            echo "FFmpeg ${FFMPEG_VERSION} with MP3 support already installed; skipping rebuild"
+            return 0
+        fi
+
+        echo "FFmpeg ${FFMPEG_VERSION} is present but MP3 support is missing; rebuilding"
+    fi
+
+    rm -rf "$src_dir"
+
+    curl -L --fail \
+        "https://www.ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.gz" \
+        -o "$tarball"
+
+    tar -xzf "$tarball" -C /tmp
+
+    cd "$src_dir"
+
+    ./configure \
+        --prefix="$prefix" \
+        --disable-doc \
+        --disable-debug \
+        --enable-gpl \
+        --enable-version3 \
+        --enable-shared \
+        --enable-libmp3lame \
+        --extra-ldflags="-Wl,-rpath,$prefix/lib"
+
+    make -j"$(nproc)"
+    sudo make install
+
+    actual="$("$ffmpeg_bin" -version 2>&1 | head -n 1)"
+
+    echo "FFmpeg installed: $actual"
+
+    if ! printf '%s\n' "$actual" | grep -Fq \
+        "ffmpeg version ${FFMPEG_VERSION}"; then
+        echo "FFmpeg installation failed: expected ${FFMPEG_VERSION}" >&2
+        exit 1
+    fi
+
+    if ! "$ffmpeg_bin" -hide_banner -encoders 2>/dev/null |
+        grep -q 'libmp3lame'; then
+        echo "FFmpeg installation failed: libmp3lame encoder is missing" >&2
         exit 1
     fi
 }
 
+
+install_legacy_tool_links() {
+    echo "Installing isolated legacy tool links"
+
+    sudo mkdir -p "$LEGACY_BIN"
+
+    sudo ln -sfn \
+        "$FFMPEG_PREFIX/bin/ffmpeg" \
+        "$LEGACY_BIN/ffmpeg"
+
+    sudo ln -sfn \
+        "$FFMPEG_PREFIX/bin/ffprobe" \
+        "$LEGACY_BIN/ffprobe"
+
+    sudo ln -sfn \
+        "$IMAGEMAGICK_PREFIX/bin/convert" \
+        "$LEGACY_BIN/convert"
+
+    sudo ln -sfn \
+        "$IMAGEMAGICK_PREFIX/bin/mogrify" \
+        "$LEGACY_BIN/mogrify"
+
+    sudo ln -sfn \
+        "$IMAGEMAGICK_PREFIX/bin/identify" \
+        "$LEGACY_BIN/identify"
+
+    echo "Legacy tools available under: $LEGACY_BIN"
+}
+
+
 case "$OS" in
-    debian)
-        sudo apt-get update
-        sudo apt-get install -y \
-            sudo coreutils wget unzip gzip gawk sed git openssl curl \
-            ffmpeg unrtf imagemagick zstd xz-utils
+    debian|fedora)
+        install_build_dependencies
+        install_imagemagick_6_9_11_60
+        install_ffmpeg_5_1_9
+        install_legacy_tool_links
         ;;
+
     macos)
         # coreutils/gawk/sed come from the PATH shim (main.sh)
-        brew install wget unzip gzip git openssl curl ffmpeg unrtf \
+        brew install \
+            wget unzip gzip git openssl curl ffmpeg unrtf \
             imagemagick zstd xz
         ;;
-    fedora)
-        sudo dnf makecache
-        sudo dnf install -y \
-            sudo coreutils wget unzip gzip gawk sed git openssl curl \
-            unrtf zstd xz
 
-        install_imagemagick_6_9_11_60_fedora
-        install_ffmpeg_5_1_9_fedora
+    *)
+        echo "Unsupported OS: $OS" >&2
+        exit 1
         ;;
 esac
