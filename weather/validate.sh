@@ -85,12 +85,9 @@ if $generate; then
         plot_root="$eval_dir/outputs/$size/plots"
 
         mkdir -p "$hash_dir"
-        : > "$hash_file"
-
-        while IFS= read -r -d '' filepath; do
-            rel_path="${filepath#"$plot_root"/}"
-            printf '%s\n' "$rel_path" >> "$hash_file"
-        done < <(find "$plot_root" -type f -name '*.png' ! -path '*/tmp/*' -print0 | sort -z)
+        
+        find "$plot_root" -type f -name '*.png' ! -path '*/tmp/*' -print0 |
+            sort -z | tr '\0' '\n' > "$hash_file"
     fi
     
     exit 0
