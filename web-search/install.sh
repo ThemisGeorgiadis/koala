@@ -67,7 +67,7 @@ case "$OS" in
         fi
         ;;
     fedora)
-        pkgs="p7zip curl wget unzip npm"
+        pkgs="p7zip curl wget unzip"
 
         sudo dnf makecache
         for pkg in $pkgs; do
@@ -82,8 +82,21 @@ case "$OS" in
         fi
 
         # Install Node.js (18.x) and npm via NodeSource
-        if ! command -v node > /dev/null 2>&1 ; then
+        NODE_MAJOR=18
+
+        node_major=""
+        if command -v node > /dev/null 2>&1 ; then
+          node_major=$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || true)
+        fi
+
+        if [ "$node_major" != "$NODE_MAJOR" ]; then
           curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
+
+          # Fedora may split Node.js into packages such as
+          # nodejs24-bin and nodejs24-npm-bin.
+          # Remove existing Node.js packages before installing NodeSource 18.
+          sudo dnf remove -y 'nodejs*' 2>/dev/null || true
+
           sudo dnf install -y nodejs
         fi
 
@@ -93,9 +106,17 @@ case "$OS" in
           exit 1
         fi
 
-        if ! rpm -q nodejs > /dev/null 2>&1 ; then
-            curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
-            sudo dnf install -y nodejs
+        node_major=$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || true)
+
+        if [ "$node_major" != "$NODE_MAJOR" ]; then
+          echo "Node.js 18.x installation failed."
+          echo "Found: $(node --version)"
+          exit 1
+        fi
+
+        if ! command -v npm > /dev/null 2>&1 ; then
+          echo "npm installation failed."
+          exit 1
         fi
         ;;
 esac
