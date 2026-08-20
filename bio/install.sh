@@ -3,6 +3,9 @@
 TOP=$(git rev-parse --show-toplevel)
 OS=$("$TOP/.tools/detect-os.sh")
 
+VENV_DIR="$TOP/venv"
+. "$VENV_DIR/bin/activate"
+
 size=full
 for arg in "$@"; do
     case "$arg" in
@@ -33,7 +36,7 @@ case "$OS" in
         ;;
     fedora)
         sudo dnf makecache
-        pkgs="gcc gcc-c++ make ncurses-devel bzip2-devel xz-devel libcurl-devel openssl-devel wget zlib-ng-compat-devel minimap2 samtools perl-Digest-SHA"
+        pkgs="gcc gcc-c++ make ncurses-devel bzip2-devel xz-devel libcurl-devel openssl-devel wget zlib-ng-compat-devel perl-Digest-SHA"
 
         for pkg in $pkgs; do
             if ! rpm -q "$pkg" >/dev/null 2>&1; then
@@ -70,6 +73,7 @@ case "$OS" in
             libdbi-perl \
             zlib1g-dev \
             libbz2-dev \
+            libdeflate-devel\
             liblzma-dev \
             libcurl4-openssl-dev \
             openjdk-17-jdk \
@@ -143,6 +147,7 @@ case "$OS" in
             perl \
             perl-App-cpanminus \
             perl-DBI \
+            libdeflate-devel\
             zlib-ng-compat-devel \
             bzip2-devel \
             xz-devel \
@@ -172,7 +177,7 @@ esac
 pip3 install --no-cache-dir --break-system-packages \
     cutadapt \
     pysam==0.24.0 \
-    numpy==1.26.4 \
+    numpy \
     pandas==3.0.5 \
     matplotlib==3.11.1 \
     seaborn==0.13.2 \
@@ -192,20 +197,24 @@ STAR_VERSION="${STAR_VERSION:-2.7.11b}"
 NPROC=$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)
 
 ## samtools - install exact release version with sudo to ensure it replaces distro version
-if ! command -v samtools >/dev/null 2>&1 || ! samtools --version 2>&1 | grep -q "$SAMTOOLS_VERSION"; then
+if ! command -v samtools >/dev/null 2>&1 \
+    || ! samtools --version 2>&1 | grep -q "$SAMTOOLS_VERSION" \
+    || ! samtools --version 2>&1 | grep -q 'libdeflate=yes'; then
+    rm -rf "/tmp/samtools-${SAMTOOLS_VERSION}" /tmp/samtools.tar.bz2
     curl -L "https://github.com/samtools/samtools/releases/download/${SAMTOOLS_VERSION}/samtools-${SAMTOOLS_VERSION}.tar.bz2" \
         -o /tmp/samtools.tar.bz2
     tar -xjf /tmp/samtools.tar.bz2 -C /tmp
-    cd "/tmp/samtools-${SAMTOOLS_VERSION}"
+    cd "/tmp/samtools-${SAMTOOLS_VERSION}" || exit 1
     ./configure --prefix=/usr/local
     make -j"$NPROC"
     sudo make install
-    cd / && rm -rf "/tmp/samtools-${SAMTOOLS_VERSION}" /tmp/samtools.tar.bz2
+    cd / || exit 1
+    rm -rf "/tmp/samtools-${SAMTOOLS_VERSION}" /tmp/samtools.tar.bz2
 fi
 
 ## minimap2 - use exact tag from working container
 if ! command -v minimap2 >/dev/null 2>&1 || ! minimap2 --version 2>&1 | grep -q "$MINIMAP2_VERSION"; then
-    git clone --depth 1 --branch "$MINIMAP2_VERSION" https://github.com/lh3/minimap2.git /tmp/minimap2 \
+    git clone --depth 1  https://github.com/lh3/minimap2.git /tmp/minimap2 \
     && cd /tmp/minimap2 \
     && make -j"$NPROC" \
     && sudo install -m 0755 minimap2 /usr/local/bin/minimap2 \
