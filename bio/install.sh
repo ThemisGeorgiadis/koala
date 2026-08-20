@@ -58,37 +58,13 @@ benchmark_dir="${TOP}/bio"
 # 1. Install OS packages
 case "$OS" in
     debian)
-        sudo apt-get install -y --no-install-recommends \
-            build-essential \
-            git \
-            wget \
-            curl \
-            python3 \
-            python3-dev \
-            python3.11-dev \
-            python3-all-dev \
-            python3-pip \
-            perl \
-            cpanminus \
-            libdbi-perl \
-            zlib1g-dev \
-            libbz2-dev \
-            libdeflate-devel\
-            liblzma-dev \
-            libcurl4-openssl-dev \
-            openjdk-17-jdk \
-            default-jre-headless \
-            r-base \
-            r-base-dev \
-            gradle \
-            cmake \
-            make \
-            gcc \
-            g++ \
-            gffread \
-            gmap \
-            parallel \
-         && rm -rf /var/lib/apt/lists/*
+        pkgs="build-essential git wget curl python3 python3-dev perl cpanminus libdbi-perl zlib1g-dev libbz2-dev libdeflate-dev liblzma-dev libcurl4-openssl-dev openjdk-17-jdk default-jre-headless r-base r-base-dev gradle cmake make gcc g++ gffread gmap parallel"
+
+        for pkg in $pkgs; do
+            if ! dpkg -s "$pkg" >/dev/null 2>&1; then
+                sudo apt-get install -y --no-install-recommends "$pkg"
+            fi
+        done
 
         sudo wget -qO /usr/local/bin/liftOver http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/liftOver
         sudo chmod +x /usr/local/bin/liftOver
@@ -134,35 +110,13 @@ case "$OS" in
         # the explicit Python-header CFLAGS the debian branch needs aren't.
         ;;
     fedora)
-        sudo dnf install -y \
-            gcc \
-            gcc-c++ \
-            make \
-            git \
-            wget \
-            curl \
-            python3 \
-            python3-devel \
-            python3-pip \
-            perl \
-            perl-App-cpanminus \
-            perl-DBI \
-            libdeflate-devel\
-            zlib-ng-compat-devel \
-            bzip2-devel \
-            xz-devel \
-            libcurl-devel \
-            openssl-devel \
-            ncurses-devel \
-            openjdk-17-devel \
-            R \
-            R-devel \
-            gradle \
-            cmake \
-            gffread \
-            gmap \
-            parallel \
-            unzip
+        pkgs="gcc gcc-c++ make git wget curl python3 python3-devel python3-pip perl perl-App-cpanminus perl-DBI libdeflate-devel zlib-ng-compat-devel bzip2-devel xz-devel libcurl-devel openssl-devel ncurses-devel openjdk-17-devel R R-devel gradle cmake gffread gmap parallel unzip"
+
+        for pkg in $pkgs; do
+            if ! rpm -q "$pkg" >/dev/null 2>&1; then
+                sudo dnf install -y "$pkg"
+            fi
+        done
 
         sudo wget -qO /usr/local/bin/liftOver http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/liftOver
         sudo chmod +x /usr/local/bin/liftOver
