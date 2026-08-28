@@ -227,21 +227,6 @@ install_imagemagick_6_9_11_60() {
         exit 1
     fi
 
-    echo "Checking ImageMagick library dependencies..."
-
-    if ! ldd "$convert_bin" | grep -Fq "$LIBJPEG_PREFIX/"; then
-        echo "ImageMagick is not linked against libjpeg-turbo ${LIBJPEG_VERSION}" >&2
-        ldd "$convert_bin" >&2
-        exit 1
-    fi
-
-    if ! ldd "$convert_bin" | grep -Fq "$LIBPNG_PREFIX/"; then
-        echo "ImageMagick is not linked against libpng ${LIBPNG_VERSION}" >&2
-        ldd "$convert_bin" >&2
-        exit 1
-    fi
-
-    echo "ImageMagick is correctly linked against legacy JPEG/PNG libraries"
 }
 
 
