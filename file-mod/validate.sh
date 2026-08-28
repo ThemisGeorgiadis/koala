@@ -3,6 +3,8 @@
 
 cd "$(realpath "$(dirname "$0")")" || exit 1
 
+export PATH="/usr/local/legacy-bin:$PATH"
+
 outputs_dir="outputs"
 hashes_dir="hashes"
 TOP="$(git rev-parse --show-toplevel)"
