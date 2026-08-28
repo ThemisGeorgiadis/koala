@@ -1,7 +1,10 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
 cd "$(dirname "$0")" || exit 1
 TOP=$(git rev-parse --show-toplevel)
+
+NODE_DIR="$TOP/.tools/nodejs18/bin" 
+export PATH="$NODE_DIR:$PATH"
 
 KOALA_SHELL=${KOALA_SHELL:-bash}
 export BENCHMARK_CATEGORY="web-search"
