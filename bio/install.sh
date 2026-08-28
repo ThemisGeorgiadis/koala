@@ -3,9 +3,6 @@
 TOP=$(git rev-parse --show-toplevel)
 OS=$("$TOP/.tools/detect-os.sh")
 
-VENV_DIR="$TOP/venv"
-. "$VENV_DIR/bin/activate"
-
 size=full
 for arg in "$@"; do
     case "$arg" in
@@ -36,7 +33,7 @@ case "$OS" in
         ;;
     fedora)
         sudo dnf makecache
-        pkgs="gcc gcc-c++ make ncurses-devel bzip2-devel xz-devel libcurl-devel openssl-devel wget zlib-ng-compat-devel perl-Digest-SHA"
+        pkgs="gcc gcc-c++ make ncurses-devel bzip2-devel xz-devel libcurl-devel openssl-devel wget zlib-ng-compat-devel minimap2 samtools perl-Digest-SHA"
 
         for pkg in $pkgs; do
             if ! rpm -q "$pkg" >/dev/null 2>&1; then
@@ -58,25 +55,21 @@ benchmark_dir="${TOP}/bio"
 # 1. Install OS packages
 case "$OS" in
     debian)
-        pkgs="build-essential git wget curl python3 python3-dev perl cpanminus libdbi-perl zlib1g-dev libbz2-dev libdeflate-dev liblzma-dev libcurl4-openssl-dev openjdk-17-jdk default-jre-headless r-base r-base-dev gradle cmake make gcc g++ gffread gmap parallel"
+                pkgs="build-essential git wget curl python3 python3-dev perl cpanminus libdbi-perl zlib1g-dev libbz2-dev libdeflate-dev liblzma-dev libcurl4-openssl-dev openjdk-17-jdk default-jre-headless r-base r-base-dev gradle cmake make gcc g++ gffread gmap parallel"
 
         for pkg in $pkgs; do
             if ! dpkg -s "$pkg" >/dev/null 2>&1; then
                 sudo apt-get install -y --no-install-recommends "$pkg"
             fi
         done
+        rm -rf /var/lib/apt/lists/*
 
         sudo wget -qO /usr/local/bin/liftOver http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/liftOver
         sudo chmod +x /usr/local/bin/liftOver
-
-        export CFLAGS="-I/usr/include/python3.11 -I/usr/include/python3.11/cpython"
-        export CPPFLAGS="$CFLAGS"
         ;;
     macos)
-        # libdbi-perl has no brew formula; installed via cpanm in section 6
-        # below. seqkit/rna-star are added here (brew formulae exist) so the
-        # Linux-binary fallbacks in sections 3 and 4 no-op via their existing
-        # `command -v` checks.
+        # libdbi-perl comes from cpanm below; seqkit/rna-star here make the
+        # Linux-binary fallbacks below no-op.
         brew install git wget curl python3 perl cpanminus openjdk@17 r gradle cmake \
             gffread parallel seqkit rna-star
 
@@ -127,29 +120,23 @@ case "$OS" in
 esac
 
 # 2. Install Python packages
-# Pin versions to match the working container for reproducible output
 pip3 install --no-cache-dir --break-system-packages \
     cutadapt \
-    pysam==0.24.0 \
+    pysam \
     numpy \
-    pandas==3.0.5 \
-    matplotlib==3.11.1 \
-    seaborn==0.13.2 \
+    pandas \
+    matplotlib \
+    seaborn \
     deeptools==3.5.0 \
     ont-fast5-api==3.3.0 \
-    h5py==3.14.0
+    h5py
+
+SAMTOOLS_VERSION="${SAMTOOLS_VERSION:-1.16.1}"
 
 # 3. Install bioinformatics binaries
-# Ensure /usr/local/bin takes precedence over stale distro binaries
-export PATH="/usr/local/bin:/usr/local/sbin:$PATH"
-
-# Use exact versions from the working container to match reference hashes
-SAMTOOLS_VERSION="${SAMTOOLS_VERSION:-1.16.1}"
-MINIMAP2_VERSION="${MINIMAP2_VERSION:-r1122}"
-SEQKIT_VERSION="${SEQKIT_VERSION:-v2.1.0}"
-STAR_VERSION="${STAR_VERSION:-2.7.11b}"
+## samtools & minimap2
+# Prefer system versions if available; otherwise build from source
 NPROC=$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)
-
 ## samtools - install exact release version with sudo to ensure it replaces distro version
 if ! command -v samtools >/dev/null 2>&1 \
     || ! samtools --version 2>&1 | grep -q "$SAMTOOLS_VERSION" \
@@ -165,36 +152,36 @@ if ! command -v samtools >/dev/null 2>&1 \
     cd / || exit 1
     rm -rf "/tmp/samtools-${SAMTOOLS_VERSION}" /tmp/samtools.tar.bz2
 fi
-
-## minimap2 - use exact tag from working container
-if ! command -v minimap2 >/dev/null 2>&1 || ! minimap2 --version 2>&1 | grep -q "$MINIMAP2_VERSION"; then
-    git clone --depth 1  https://github.com/lh3/minimap2.git /tmp/minimap2 \
+command -v minimap2 >/dev/null 2>&1 || { \
+    git clone --depth 1 https://github.com/lh3/minimap2.git /tmp/minimap2 \
     && cd /tmp/minimap2 \
     && make -j"$NPROC" \
-    && sudo install -m 0755 minimap2 /usr/local/bin/minimap2 \
-    && sudo install -m 0755 ./*.py /usr/local/bin/ 2>/dev/null || true \
-    && cd / && rm -rf /tmp/minimap2
-fi
+    && cp minimap2 /usr/local/bin/ \
+    && cp ./*.py /usr/local/bin/ \
+    && cd / && rm -rf /tmp/minimap2; }
 
-## seqkit - use exact version
-if ! command -v seqkit >/dev/null 2>&1 || ! seqkit version 2>&1 | grep -q "$SEQKIT_VERSION"; then
-  curl -L "https://github.com/shenwei356/seqkit/releases/download/${SEQKIT_VERSION}/seqkit_linux_amd64.tar.gz" \
+## seqkit
+command -v seqkit >/dev/null 2>&1 || {
+  curl -L https://github.com/shenwei356/seqkit/releases/download/v2.1.0/seqkit_linux_amd64.tar.gz \
     -o /tmp/seqkit.tar.gz \
-  && tar -xzf /tmp/seqkit.tar.gz -C /tmp seqkit --no-same-owner \
-  && sudo install -m 0755 /tmp/seqkit /usr/local/bin/seqkit \
-  && rm /tmp/seqkit.tar.gz /tmp/seqkit
-fi
+  && \
+  # extract just the `seqkit` executable into /tmp
+  tar -xzf /tmp/seqkit.tar.gz -C /tmp seqkit --no-same-owner \
+  && \
+  mv /tmp/seqkit /usr/local/bin/seqkit \
+  && chmod +x /usr/local/bin/seqkit \
+  && rm /tmp/seqkit.tar.gz
+}
 
-## STAR - use exact version
-if ! command -v STAR >/dev/null 2>&1 || ! STAR --version 2>&1 | grep -q "$STAR_VERSION"; then
+if ! command -v STAR >/dev/null 2>&1; then
   tmpdir=$(mktemp -d)
-  wget -qO "$tmpdir/STAR_${STAR_VERSION}.zip" \
-    "https://github.com/alexdobin/STAR/releases/download/${STAR_VERSION}/STAR_${STAR_VERSION}.zip"
+  wget -qO "$tmpdir/STAR_2.7.11b.zip" \
+    https://github.com/alexdobin/STAR/releases/download/2.7.11b/STAR_2.7.11b.zip
 
-  unzip -q "$tmpdir/STAR_${STAR_VERSION}.zip" -d "$tmpdir"
+  unzip -q "$tmpdir/STAR_2.7.11b.zip" -d "$tmpdir"
 
-  sudo install -m 0755 \
-    "$tmpdir/STAR_${STAR_VERSION}/Linux_x86_64_static/STAR" \
+  install -m 0755 \
+    "$tmpdir/STAR_2.7.11b/Linux_x86_64_static/STAR" \
     /usr/local/bin/STAR
 
   rm -rf "$tmpdir"
