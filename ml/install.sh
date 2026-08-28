@@ -55,9 +55,9 @@ case "$OS" in
         ;;
 esac
 
-uv pip install --break-system-packages --upgrade pip
+pip install --break-system-packages --upgrade pip
 
-uv pip install --break-system-packages \
+pip install --break-system-packages \
     joblib==1.4.2 \
     numpy==1.26.4 \
     scikit-learn==1.5.0 \
