@@ -20,12 +20,79 @@ IMAGEMAGICK_VERSION="6.9.11-60"
 IMAGEMAGICK_PREFIX="/usr/local/imagemagick-${IMAGEMAGICK_VERSION}"
 
 
-install_build_dependencies() {
-    echo "Installing build dependencies for $OS"
+# Detect whether we are running inside a container.
+if [ -f /.dockerenv ] || [ -f /run/.containerenv ]; then
+    IN_CONTAINER=true
+else
+    IN_CONTAINER=false
+fi
+
+
+install_dependencies() {
+    echo "Installing dependencies for $OS"
+
+    if $IN_CONTAINER; then
+        echo "Container detected; installing system packages"
+
+        case "$OS" in
+            debian)
+                apt-get update
+
+                apt-get install -y \
+                    sudo \
+                    coreutils \
+                    wget \
+                    unzip \
+                    gzip \
+                    gawk \
+                    sed \
+                    git \
+                    openssl \
+                    curl \
+                    ffmpeg \
+                    unrtf \
+                    imagemagick \
+                    zstd \
+                    xz-utils
+                ;;
+
+            fedora)
+                dnf makecache
+
+                dnf install -y \
+                    sudo \
+                    coreutils \
+                    wget \
+                    unzip \
+                    gzip \
+                    gawk \
+                    sed \
+                    git \
+                    openssl \
+                    curl \
+                    ffmpeg \
+                    unrtf \
+                    zstd \
+                    ImageMagick \
+                    xz
+                ;;
+
+            *)
+                echo "Unsupported OS in container: $OS" >&2
+                exit 1
+                ;;
+        esac
+
+        return 0
+    fi
+
+
+    echo "Bare-metal environment detected; installing build dependencies"
 
     case "$OS" in
         debian)
             sudo apt-get update
+
             sudo apt-get install -y \
                 sudo coreutils wget unzip gzip gawk sed git openssl curl \
                 unrtf zstd xz-utils \
@@ -42,6 +109,7 @@ install_build_dependencies() {
 
         fedora)
             sudo dnf makecache
+
             sudo dnf install -y \
                 sudo coreutils wget unzip gzip gawk sed git openssl curl \
                 unrtf zstd xz \
@@ -55,8 +123,14 @@ install_build_dependencies() {
                 lame lame-devel
             ;;
 
+        macos)
+            brew install \
+                wget unzip gzip git openssl curl ffmpeg unrtf \
+                imagemagick zstd xz
+            ;;
+
         *)
-            echo "Unsupported OS for legacy source builds: $OS" >&2
+            echo "Unsupported OS: $OS" >&2
             exit 1
             ;;
     esac
@@ -226,7 +300,6 @@ install_imagemagick_6_9_11_60() {
         echo "ImageMagick installation failed: expected ${IMAGEMAGICK_VERSION}" >&2
         exit 1
     fi
-
 }
 
 
@@ -323,17 +396,19 @@ install_legacy_tool_links() {
 
 case "$OS" in
     debian|fedora)
-        install_build_dependencies
-        install_imagemagick_6_9_11_60
-        install_ffmpeg_5_1_9
-        install_legacy_tool_links
+        install_dependencies
+
+        if $IN_CONTAINER; then
+            echo "Using system FFmpeg/ImageMagick inside container"
+        else
+            install_imagemagick_6_9_11_60
+            install_ffmpeg_5_1_9
+            install_legacy_tool_links
+        fi
         ;;
 
     macos)
-        # coreutils/gawk/sed come from the PATH shim (main.sh)
-        brew install \
-            wget unzip gzip git openssl curl ffmpeg unrtf \
-            imagemagick zstd xz
+        install_dependencies
         ;;
 
     *)
