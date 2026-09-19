@@ -19,13 +19,14 @@ LIBPNG_PREFIX="/usr/local/libpng-${LIBPNG_VERSION}"
 IMAGEMAGICK_VERSION="6.9.11-60"
 IMAGEMAGICK_PREFIX="/usr/local/imagemagick-${IMAGEMAGICK_VERSION}"
 
+IN_CONTAINER=false
 
-# Detect whether we are running inside a container.
-if [ -f /.dockerenv ] || [ -f /run/.containerenv ]; then
-    IN_CONTAINER=true
-else
-    IN_CONTAINER=false
-fi
+## Detect whether we are running inside a container.
+#if [ -f /.dockerenv ] || [ -f /run/.containerenv ]; then
+#    IN_CONTAINER=true
+#else
+#    IN_CONTAINER=false
+#fi
 
 
 install_dependencies() {

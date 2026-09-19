@@ -35,6 +35,8 @@ done
 mkdir -p "$in"
 mkdir -p "$out"
 
+: > "$out/global-index.txt"
+: > "$out/visited.txt"
 
 # if [ $size = "min" ]; then
 #     echo https://cs.brown.edu/courses/csci1380/sandbox/1 >${OUT}/urls.txt
