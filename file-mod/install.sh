@@ -19,77 +19,8 @@ LIBPNG_PREFIX="/usr/local/libpng-${LIBPNG_VERSION}"
 IMAGEMAGICK_VERSION="6.9.11-60"
 IMAGEMAGICK_PREFIX="/usr/local/imagemagick-${IMAGEMAGICK_VERSION}"
 
-IN_CONTAINER=false
-
-## Detect whether we are running inside a container.
-#if [ -f /.dockerenv ] || [ -f /run/.containerenv ]; then
-#    IN_CONTAINER=true
-#else
-#    IN_CONTAINER=false
-#fi
-
-
 install_dependencies() {
-    echo "Installing dependencies for $OS"
-
-    if $IN_CONTAINER; then
-        echo "Container detected; installing system packages"
-
-        case "$OS" in
-            debian)
-                apt-get update
-
-                apt-get install -y \
-                    sudo \
-                    coreutils \
-                    wget \
-                    unzip \
-                    gzip \
-                    gawk \
-                    sed \
-                    git \
-                    openssl \
-                    curl \
-                    ffmpeg \
-                    unrtf \
-                    imagemagick \
-                    zstd \
-                    xz-utils
-                ;;
-
-            fedora)
-                dnf makecache
-
-                dnf install -y \
-                    sudo \
-                    coreutils \
-                    wget \
-                    unzip \
-                    gzip \
-                    gawk \
-                    sed \
-                    git \
-                    openssl \
-                    curl \
-                    ffmpeg \
-                    unrtf \
-                    zstd \
-                    ImageMagick \
-                    xz
-                ;;
-
-            *)
-                echo "Unsupported OS in container: $OS" >&2
-                exit 1
-                ;;
-        esac
-
-        return 0
-    fi
-
-
-    echo "Bare-metal environment detected; installing build dependencies"
-
+    
     case "$OS" in
         debian)
             sudo apt-get update
@@ -398,14 +329,9 @@ install_legacy_tool_links() {
 case "$OS" in
     debian|fedora)
         install_dependencies
-
-        if $IN_CONTAINER; then
-            echo "Using system FFmpeg/ImageMagick inside container"
-        else
-            install_imagemagick_6_9_11_60
-            install_ffmpeg_5_1_9
-            install_legacy_tool_links
-        fi
+        install_imagemagick_6_9_11_60
+        install_ffmpeg_5_1_9
+        install_legacy_tool_links
         ;;
 
     macos)
