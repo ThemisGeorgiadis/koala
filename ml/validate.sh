@@ -28,5 +28,5 @@ OUT="$eval_dir/outputs/out_$size"
 export OUT
 
 # run the Python script
-python3 validate.py $parsed_args
+python3 $eval_dir/utils/validate.py $parsed_args
 echo "ml $?"
