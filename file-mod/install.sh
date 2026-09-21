@@ -73,7 +73,6 @@ install_libjpeg_2_1_5() {
     echo "Installing libjpeg-turbo ${LIBJPEG_VERSION}"
 
     src_dir="/tmp/libjpeg-turbo-${LIBJPEG_VERSION}"
-    tarball="/tmp/libjpeg-turbo-${LIBJPEG_VERSION}.tar.gz"
     prefix="$LIBJPEG_PREFIX"
     libdir="$prefix/lib64"
 
@@ -86,13 +85,15 @@ install_libjpeg_2_1_5() {
         fi
     fi
 
-    rm -rf "$src_dir" "$tarball"
+    rm -rf "$src_dir"
 
-    curl -L --fail \
-        "https://downloads.sourceforge.net/libjpeg-turbo/${LIBJPEG_VERSION}/libjpeg-turbo-${LIBJPEG_VERSION}.tar.gz" \
-        -o "$tarball"
+    git clone \
+        --branch "${LIBJPEG_VERSION}" \
+        --depth 1 \
+        https://github.com/libjpeg-turbo/libjpeg-turbo.git \
+        "$src_dir"
 
-    tar -xzf "$tarball" -C /tmp
+    cd "$src_dir"
 
     cmake -S "$src_dir" -B "$src_dir/build" \
         -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
@@ -126,7 +127,6 @@ install_libpng_1_6_39() {
     echo "Installing libpng ${LIBPNG_VERSION}"
 
     src_dir="/tmp/libpng-${LIBPNG_VERSION}"
-    tarball="/tmp/libpng-${LIBPNG_VERSION}.tar.gz"
     prefix="$LIBPNG_PREFIX"
 
     if [ -x "$prefix/bin/pngfix" ]; then
@@ -138,13 +138,13 @@ install_libpng_1_6_39() {
         fi
     fi
 
-    rm -rf "$src_dir" "$tarball"
+    rm -rf "$src_dir"
 
-    curl -L --fail \
-        "https://download.sourceforge.net/libpng/libpng-${LIBPNG_VERSION}.tar.gz" \
-        -o "$tarball"
-
-    tar -xzf "$tarball" -C /tmp
+    git clone \
+        --branch "v${LIBPNG_VERSION}" \
+        --depth 1 \
+        https://github.com/pnggroup/libpng.git \
+        "$src_dir"
 
     cd "$src_dir"
 
@@ -174,7 +174,6 @@ install_imagemagick_6_9_11_60() {
     install_libpng_1_6_39
 
     src_dir="/tmp/ImageMagick-${IMAGEMAGICK_VERSION}"
-    tarball="/tmp/ImageMagick-${IMAGEMAGICK_VERSION}.tar.xz"
     prefix="$IMAGEMAGICK_PREFIX"
     convert_bin="$prefix/bin/convert"
 
@@ -190,11 +189,11 @@ install_imagemagick_6_9_11_60() {
 
     rm -rf "$src_dir"
 
-    curl -L --fail \
-        "https://download.imagemagick.org/archive/releases/ImageMagick-${IMAGEMAGICK_VERSION}.tar.xz" \
-        -o "$tarball"
-
-    tar -xJf "$tarball" -C /tmp
+    git clone \
+        --branch "${IMAGEMAGICK_VERSION}" \
+        --depth 1 \
+        https://github.com/ImageMagick/ImageMagick6.git \
+        "$src_dir"
 
     cd "$src_dir"
 
@@ -239,14 +238,13 @@ install_ffmpeg_5_1_9() {
     echo "Installing FFmpeg ${FFMPEG_VERSION} from source"
 
     src_dir="/tmp/ffmpeg-${FFMPEG_VERSION}"
-    tarball="/tmp/ffmpeg-${FFMPEG_VERSION}.tar.gz"
     prefix="$FFMPEG_PREFIX"
     ffmpeg_bin="$prefix/bin/ffmpeg"
 
     if [ -x "$ffmpeg_bin" ]; then
         actual="$("$ffmpeg_bin" -version 2>&1 | head -n 1 || true)"
 
-        if printf '%s\n' "$actual" | grep -Fq "ffmpeg version ${FFMPEG_VERSION}" &&
+        if printf '%s\n' "$actual" | grep -Fq "${FFMPEG_VERSION}" &&
            "$ffmpeg_bin" -hide_banner -encoders 2>/dev/null |
                grep -q 'libmp3lame'; then
             echo "FFmpeg ${FFMPEG_VERSION} with MP3 support already installed; skipping rebuild"
@@ -258,11 +256,11 @@ install_ffmpeg_5_1_9() {
 
     rm -rf "$src_dir"
 
-    curl -L --fail \
-        "https://www.ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.gz" \
-        -o "$tarball"
-
-    tar -xzf "$tarball" -C /tmp
+    git clone \
+        --branch "n${FFMPEG_VERSION}" \
+        --depth 1 \
+        https://github.com/FFmpeg/FFmpeg.git \
+        "$src_dir"
 
     cd "$src_dir"
 
@@ -284,7 +282,7 @@ install_ffmpeg_5_1_9() {
     echo "FFmpeg installed: $actual"
 
     if ! printf '%s\n' "$actual" | grep -Fq \
-        "ffmpeg version ${FFMPEG_VERSION}"; then
+        "${FFMPEG_VERSION}"; then
         echo "FFmpeg installation failed: expected ${FFMPEG_VERSION}" >&2
         exit 1
     fi
